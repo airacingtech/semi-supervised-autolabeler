@@ -7,10 +7,16 @@ import numpy as np
 from tool.segmentor import Segmentor
 from tool.detector import Detector
 from tool.transfer_tools import draw_outline, draw_points
+import tool.roar_tools as rt
 import cv2
 from seg_track_anything import draw_mask
 
-
+"""
+TODO:
+    1. Assign key frames to self.key_frame_arr
+    2. Assign all labels to their color_id or r,g,b color value array
+    3. Track objects and assign labels for each tracked frame (hard)
+        a. """
 class SegTracker():
     def __init__(self,segtracker_args, sam_args, aot_args) -> None:
         """
@@ -28,6 +34,12 @@ class SegTracker():
         self.curr_idx = 1
         self.origin_merged_mask = None  # init by segment-everything or update
         self.first_frame_mask = None
+        # Roar Lab semantic Segmentation added var
+        self.label_to_color = {} #associate class with color id
+        self.class_obj = {} #associate class name with object
+        self.key_frame_arr = [] #keep track of frame idx of keyframes
+        self.start_frame_idx = 0
+        self.end_frame_idx = 0
 
         # debug
         self.everything_points = []
@@ -36,6 +48,10 @@ class SegTracker():
 
     def seg(self,frame):
         '''
+        Takes in a given frame and runs segment everything. 
+        Creates origin merged mask containing all objects 
+        in frame with associated idx values to discriminate
+        between different objects in the same frame.
         Arguments:
             frame: numpy array (h,w,3)
         Return:
@@ -72,6 +88,28 @@ class SegTracker():
 
         self.first_frame_mask = self.origin_merged_mask
         return self.origin_merged_mask
+    def start_seg_tracker_for_cvat(self, start_idx, end_idx):
+        '''Prime seg tracker for use with cvat export
+        Arguments:
+            start_idx: int
+            end_idx: int
+        Return:
+            none'''
+        self.start_frame_idx = start_idx
+        self.end_frame_idx = end_idx
+    def set_key_frame(self, frame, masks, labels):
+        """Sets origin_merged_mask with all annotated 
+        masks for the given key frame. Replaces seg function 
+        as annotation is done with CVAT instead of seg everything.
+
+        Args:
+            frame np array (h, w, 3): 3 dimensional numpy array of image
+            masks list [(h, w), ]: list of masks in same order as labels
+            labels list [(str: name, id: color_id), ]: associative class 
+                                                    label and color id for masks
+        Return:
+            origin_merged_mask: numpy array (h,w)      
+        """
 
     def update_origin_merged_mask(self, updated_merged_mask):
         self.origin_merged_mask = updated_merged_mask
@@ -93,6 +131,25 @@ class SegTracker():
         self.reference_objs_list.append(np.unique(mask))
         self.curr_idx = self.get_obj_num() + 1
         self.tracker.add_reference_frame(frame,mask, self.curr_idx - 1, frame_step)
+    
+    def add_reference_with_label(self, frame, mask, label, frame_step=0):
+        """
+        Add objects under same label in mask for tracking
+        Arguments:
+            frame: numpy array (h,w,3)
+            mask: numpy array (h,w)
+            label: (str: name, id: color_id)
+        """
+        #convert hex to rgb if not in (r, g, b) format
+        assert(type(label) is list or isinstance(label, np.ndarray))
+        obj_label = label[0]
+        obj_color = label[1]
+        
+        if type(obj_color) is str:
+            obj_color = rt.hex_to_rgb(obj_color)
+        self.label_pairs[obj_label] = obj_color
+        self.add_reference(frame, mask, frame_step=frame_step)
+        
 
     def track(self,frame,update_memory=False):
         '''

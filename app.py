@@ -248,6 +248,8 @@ def add_new_object(Seg_Tracker):
 
 def tracking_objects(Seg_Tracker, input_video, input_img_seq, fps):
     print("Start tracking !")
+    obj = Seg_Tracker.get_tracking_objs()
+    print("here are how many objects there are {} and here are the ids {}".format(len(obj), obj))
     return tracking_objects_in_video(Seg_Tracker, input_video, input_img_seq, fps)
 
 def seg_track_app():
