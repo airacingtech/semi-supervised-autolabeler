@@ -34,12 +34,7 @@ class SegTracker():
         self.curr_idx = 1
         self.origin_merged_mask = None  # init by segment-everything or update
         self.first_frame_mask = None
-        # Roar Lab semantic Segmentation added var
-        self.label_to_color = {} #associate class with color id
-        self.class_obj = {} #associate class name with object
-        self.key_frame_arr = [] #keep track of frame idx of keyframes
-        self.start_frame_idx = 0
-        self.end_frame_idx = 0
+        
 
         # debug
         self.everything_points = []
@@ -132,23 +127,7 @@ class SegTracker():
         self.curr_idx = self.get_obj_num() + 1
         self.tracker.add_reference_frame(frame,mask, self.curr_idx - 1, frame_step)
     
-    def add_reference_with_label(self, frame, mask, label, frame_step=0):
-        """
-        Add objects under same label in mask for tracking
-        Arguments:
-            frame: numpy array (h,w,3)
-            mask: numpy array (h,w)
-            label: (str: name, id: color_id)
-        """
-        #convert hex to rgb if not in (r, g, b) format
-        assert(type(label) is list or isinstance(label, np.ndarray))
-        obj_label = label[0]
-        obj_color = label[1]
-        
-        if type(obj_color) is str:
-            obj_color = rt.hex_to_rgb(obj_color)
-        self.label_pairs[obj_label] = obj_color
-        self.add_reference(frame, mask, frame_step=frame_step)
+    
         
 
     def track(self,frame,update_memory=False):
