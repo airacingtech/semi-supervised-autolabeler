@@ -1,9 +1,105 @@
 import numpy as np
 import xml.etree.ElementTree as ET
-import datumaro
-import ijson
-from collections import defaultdict
+# import datumaro
+# import ijson
+# from collections import defaultdict
+import xmltodict
+import copyr
+import sys
+import os
+from PIL import Image
+import re
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from RoarSegTracker import RoarSegTracker
 # from RoarSegTracker import RoarSegTracker
+
+class MaskObject():
+    """MaskObject class representation
+    """
+    def __init__(self, frame: int = 0, mask: dict = {}, id: int = 0, label="", color_id="", data={}, img_dim = (0, 0)):
+            self.frame = frame
+            self.mask = mask
+            self.id = id
+            self.label = label
+            self.color = color_id
+            self.data = data
+            self.img_dim = img_dim
+            self.start_0 = False #sometimes converting img back to xml parameters doesnt work if rle starts with 0
+    def set_frame(self, frame):
+        self.frame = frame
+    def get_frame(self) -> int:
+        return self.frame
+    def set_mask(self, mask: dict):
+        self.mask = mask
+    def get_mask(self) -> dict:
+            return self.mask
+    def set_id(self, id: int):
+        self.id = id
+    def get_id(self) -> int:
+        return self.id
+    def set_label(self, label: str):
+        self.label = label
+    def get_label(self) -> str:
+            return self.label
+    def set_color(self, color: str):
+        self.color = color
+    def get_color(self):
+        return self.color
+    
+    def copy(self):
+        copy_mask_obj = RoarSegTracker.MaskObject(int(self.frame), dict(self.mask), int(self.id), 
+                                                  str(self.label), str(self.color), dict(self.data), list(self.img_dim))
+        return copy_mask_obj
+            
+    def get_mask_array(self) -> np.array:
+        """Get mask as numpy array.
+        
+        Returns:
+        mask_array -- Numpy array of dimensions (height, width) with mask as 1 * unique id and background as 0.
+        """
+        mask_array = self.get_id() *  mask_to_img(self.data['rle'], self.data['width'], 
+                                                  self.data['height'], self.data['top'], 
+                                                  self.data['left'], self.img_dim)
+        
+        return mask_array
+    def turn_mask_array_to_dict(self, mask_array, id, label, frame, color):
+        """Set mask_array to dictionary called self.mask
+        
+        Arguments:
+            mask_array: np.array of dimensions (height, width) with mask as 1 * unique id and background as 0
+            id (int): unique id of mask
+            label (str): label of mask
+            frame (int): frame number of mask
+        Returns:
+            None
+        """
+        self.data['rle'], self.data['width'], self.data['height'], \
+        self.data['top'], self.data['left'], self.img_dim = img_to_mask(mask_array)
+        self.data['id'] = int(id)
+        self.data['label'] = str(label)
+        self.data['frame'] = int(frame)
+        self.mask = self.data['rle']
+        self.set_color(color)
+        
+        
+def get_image(photo_dir="", frame_num=0) -> np.array:
+    """Takes a photo directory and returns a numpy array representing the image.
+    
+    Arguments:
+        photo_dir (str): path to the photo directory. Example: '/home/user/$USERNAME/Downloads/
+        frame_num (int): the frame number to specify the image to search for.
+        
+    Returns:
+        np_frame (np.array): numpy array representing the image with dimensions (h, w, 3)."""
+    pattern = r'^0*' + str(frame_num) + r'(\.jpg|\.jpeg|\.png|\.bmp)$'
+    for filename in os.listdir(photo_dir):
+        if re.match(pattern, filename):
+            path_to_file = os.path.join(photo_dir, filename)
+            break;
+    im_frame = Image.open(path_to_file)
+    np_frame = np.array(im_frame.get_data())
+    return np_frame
+
 
 def hex_to_rgb(hex_color_str):
     """Takes a hexadecimal color string and converts it to RGB.
@@ -24,44 +120,6 @@ def hex_to_rgb(hex_color_str):
     
     return [int(hex_color_str[i:i+2], 16) for i in range(0, 6, 2)]
 
-class MaskObject():
-    """MaskObject class representation
-    """
-    def __init__(self, frame: int, mask: dict, id: int, label="", color_id="", data={}, img_dim = (0, 0)):
-            self.frame = frame
-            self.mask = mask
-            self.id = id
-            self.label = label
-            self.color = color_id
-            self.data = data
-            self.img_dim = img_dim
-            self.start_0 = False #sometimes converting img back to xml parameters doesnt work if rle starts with 0
-    
-    def get_frame(self) -> int:
-        return self.frame
-    
-    def get_mask(self) -> dict:
-            return self.mask
-    def get_id(self) -> int:
-        return self.id
-    def get_label(self) -> str:
-            return self.label
-    def get_color(self):
-        return self.color
-            
-    def get_mask_array(self) -> np.array:
-        """Get mask as numpy array.
-        
-        Returns:
-        mask_array -- Numpy array of dimensions (height, width) with mask as 1 and background as 0.
-        """
-        mask_array = mask_to_img(self.data['rle'], self.data['width'], self.data['height'], 
-                                 self.data['top'], self.data['left'], self.img_dim)
-        
-        return mask_array
-    def turn_mask_array_to_dict(self, mask_array):
-        self.data['rle'], self.data['width'], self.data['height'], \
-        self.data['top'], self.data['left'], self.img_dim = img_to_mask(mask_array)
 
 def mask_to_img(rle: np.array, width: int, height: int, top: int, left: int, img_dim: tuple[int, int]) -> np.array:
     """Generate mask image from run length encoding.
@@ -90,7 +148,14 @@ def mask_to_img(rle: np.array, width: int, height: int, top: int, left: int, img
     img[top:top+height, left:left+width] = bitmap
     
     return img, rle[0] == 0
-
+def get_id_from_array(img: np.array):
+    
+    unique_values, counts = np.unique(img, return_counts=True)
+    special_number = unique_values[counts == 1][0]
+    arr_binary = (img == special_number).astype(int)
+    
+    return special_number, arr_binary
+    
 def img_to_mask(img: np.array) -> tuple:
     """Generate run length encoding, mask position and dimensions from binary image.
     
@@ -108,33 +173,81 @@ def img_to_mask(img: np.array) -> tuple:
     left -- Left coordinate of mask
     img_dim -- Dimensions of image (height, width)
     """
+    if img.ndim != 2:
+        raise ValueError('only 2D image supported')
     
-    # Find the bounding box of the mask
-    rows = np.any(img, axis=1)
-    cols = np.any(img, axis=0)
-    rmin, rmax = np.where(rows)[0][[0, -1]]
-    cmin, cmax = np.where(cols)[0][[0, -1]]
+    # Find where mask coordinates
+    width_nonzero = img.sum(axis=0).nonzero()[0]
+    height_nonzero = img.sum(axis=1).nonzero()[0]
     
-    # Extract the mask and its dimensions
-    mask = img[rmin:rmax+1, cmin:cmax+1]
-    height, width = mask.shape
+    # Find bounding box containing mask
+    left = width_nonzero.min()
+    top = height_nonzero.min()
+    width = width_nonzero.max() - left + 1
+    height = height_nonzero.max() - top + 1
     
-    # Create the run length encoding
-    rle = []
-    current_value = mask[0,0]
-    current_run = 1
-    for value in mask.flatten()[1:]:
-        if value == current_value:
-            current_run += 1
-        else:
-            rle.append(current_run)
-            current_run = 1
-            current_value = value
-    rle.append(current_run)
+    # Get mask from image
+    mask_box = img[top:top+height, left:left+width].reshape(-1)
+    mask_num_pixels = mask_box.shape[0]
     
-    return (np.array(rle), width, height, rmin, cmin, img.shape)
+    # Find run start indexes
+    intersections_ixs = np.not_equal(mask_box[:-1], mask_box[1:]).nonzero()[0] + 1
+    start_ixs = np.concatenate(([0], intersections_ixs, mask_num_pixels))
+    
+    # Get Run Lengths
+    rle = np.diff(start_ixs)
+    
+    # Check if mask starts with 1 b/c RLE starts with 0
+    if mask_box[0] == 1:
+        rle = np.concatenate(([0], rle))
+    
+    return (rle, width, height, top, left, img.shape)
 
-def xml_to_masks(filename: str, use_labels_dict=False):
+# About 25x slower than img_to_mask() above
+# def img_to_mask(img: np.array) -> tuple:
+#     """Generate run length encoding, mask position and dimensions from binary image.
+    
+#     Takes a binary numpy array and converts it into run length encoding, also finds the position 
+#     and dimensions of the mask.
+    
+#     Parameters:
+#     img -- Numpy array of dimensions (height, width) with mask as 1 and background as 0.
+    
+#     Returns:
+#     rle -- Run length encoding of mask.
+#     width -- Width of mask
+#     height -- Height of mask
+#     top -- Top coordinate of mask
+#     left -- Left coordinate of mask
+#     img_dim -- Dimensions of image (height, width)
+#     """
+    
+#     # Find the bounding box of the mask
+#     rows = np.any(img, axis=1)
+#     cols = np.any(img, axis=0)
+#     rmin, rmax = np.where(rows)[0][[0, -1]]
+#     cmin, cmax = np.where(cols)[0][[0, -1]]
+    
+#     # Extract the mask and its dimensions
+#     mask = img[rmin:rmax+1, cmin:cmax+1]
+#     height, width = mask.shape
+    
+#     # Create the run length encoding
+#     rle = []
+#     current_value = mask[0,0]
+#     current_run = 1
+#     for value in mask.flatten()[1:]:
+#         if value == current_value:
+#             current_run += 1
+#         else:
+#             rle.append(current_run)
+#             current_run = 1
+#             current_value = value
+#     rle.append(current_run)
+    
+#     return (np.array(rle), width, height, rmin, cmin, img.shape)
+
+def xml_to_masks(filename: str):
     """Parse Annotations.xml file from CVAT for mask recreation.
     
     Parameters:
@@ -150,29 +263,26 @@ def xml_to_masks(filename: str, use_labels_dict=False):
         top -- Top coordinate of mask
         width -- Width of mask
         height -- Height of mask
-    labels -- List of dicts with name, color and id if use_labels_dict = False
-        name -- Name of mask
-        color -- Color of mask
-        id -- ID of mask
-    labels_dict -- Dictionary with keys 'label' if use_labels_dict = True
-        key -- 'label'
-        value -- {name: Name of mask, color: Color of mask, id: ID of mask}
+    labels_dict -- Dictionary with label names as keys
+        key -- label name
+        value -- {color: Color of mask, id: ID of label}
     img_dim -- Dictionary with keys 'width', 'height'
+    start_frame -- Start frame of video
+    stop_frame -- Stop frame of video
     """
     # Find Root
     tree = ET.parse(filename)
     root = tree.getroot()
     
+    start_frame = root.find('.//start_frame').text
+    stop_frame = root.find('.//stop_frame').text
+    
     # Find label information
-    labels = []
     labels_dict = {}
     for l_id, label in enumerate(root.findall('.//label')):
         l_name = label.find('name').text
         l_color = label.find('color').text
-        if not use_labels_dict:
-            labels.append({'name':l_name, 'color': l_color, 'id': l_id})
-        else:
-            labels_dict['l_name'] = {'name':l_name, 'color': l_color, 'id': l_id}
+        labels_dict[l_name] = {'color': l_color, 'id': l_id}
     
     # Get Image dimensions
     img_dim_root = root.find('.//original_size')
@@ -190,8 +300,9 @@ def xml_to_masks(filename: str, use_labels_dict=False):
             else np.array(track.find('mask').get(k).split(', ')).astype(int) for k in mask_keys]
         masks.append(dict(zip(track_keys + mask_keys,track_values + mask_values)))
     
-    return masks, labels if not use_labels_dict else labels_dict, img_dim
-def masks_to_mask_objects(masks: list, labels_dict: dict, img_dim: dict) -> dict[int, MaskObject]:
+    return masks, labels_dict, img_dim, start_frame, stop_frame
+
+def masks_to_mask_objects(masks: list, labels_dict: dict, img_dim: dict) -> dict[int, dict[int, MaskObject]]:
     """Gathers mask objects from a list of masks and return list of mask objects
 
     Args:
@@ -203,12 +314,13 @@ def masks_to_mask_objects(masks: list, labels_dict: dict, img_dim: dict) -> dict
         dict[int, MaskObject]: Dictionary pairing key frame to dict of mask objects mapped by object id
         for that given frame
     """
+    # TODO: Add frame range from start_frame to stop_frame
     frame_to_mask_objects = {}
     for mask in masks:
-        mask_obj = MaskObject(mask['frame'], mask['rle'], mask['id'], labels_dict[mask['label']]['name'], 
+        mask_obj = MaskObject(mask['frame'], mask['rle'], mask['id'], mask['label'], 
                               labels_dict[mask['label']]['color'], mask, (img_dim['height'], img_dim['width']))
         if frame_to_mask_objects.get(mask_obj.frame) is None:
-            frame_to_mask_objects[mask_obj.frame] = [{mask_obj.get_id(): mask_obj}]
+            frame_to_mask_objects[mask_obj.frame] = {mask_obj.get_id(): mask_obj}
         else:
             mask_dict = frame_to_mask_objects[mask_obj.frame]
             mask_dict[mask_obj.get_id()] = mask_obj
@@ -216,33 +328,132 @@ def masks_to_mask_objects(masks: list, labels_dict: dict, img_dim: dict) -> dict
     return frame_to_mask_objects
 import json
 
+def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int, stop_frame: int, output_filename: str) -> None:
+    """Takes a dictionary of frame to mask objects and writes Annotations XML file.
+
+    Args:
+        frame_masks (dict): output of masks_to_mask_objects(). Key is frame number, value is dict of mask objects mapped by object id
+        output_filename (str): file name to write XML file
+    """
+    tree = ET.parse('/home/roar-nexus/Segment-and-Track-Anything/tool/template_annotations.xml')
+    root = tree.getroot()
+    
+    # Calculate frame data
+    # TODO: Update with proper frame data
+    frame_start = start_frame
+    frame_end = stop_frame
+    frame_count = frame_end - frame_start + 1
+
+    # Update frame data
+    root.find('.//size').text = str(frame_count)
+    root.find('.//start_frame').text = str(frame_start)
+    root.find('.//stop_frame').text = str(frame_end)
+    
+    label_tuples = []
+    img_dim = (0,0)
+
+    # Loop through all frame and all Mask Objects in each frame
+    for frame in frame_masks.values():
+        for mask in frame.values():
+            # Store label values
+            label_tuple = (mask.label, mask.color)
+            if label_tuple not in label_tuples:
+                label_tuples.append(label_tuple)
+            
+            # Store image Dimensions
+            if img_dim == (0,0):
+                img_dim = mask.img_dim
+
+            # Copy mask data and convert values to strings
+            data = copy.deepcopy(mask.data)
+            data['rle'] = ', '.join(data['rle'].astype(str))
+            out_data = {k: str(v) for k,v in data.items()}
+            del data
+
+            # Create Track Element 
+            track_dict = {k: out_data.pop(k) for k in ['id', 'label']}
+            track_dict['source'] = 'semi-auto'
+            track_ele = ET.Element('track', track_dict)
+
+            # Add attributes for first mask
+            out_data['keyframe'] = '1'
+            out_data['outside'] = '0'
+            out_data['occluded'] = '0'
+            out_data['z_order'] = '0'
+            mask_ele_1 = ET.SubElement(track_ele, 'mask', out_data)
+
+            # Update attributes for second mask
+            out_data['outside'] = '1'
+            out_data['frame'] = str(int(out_data['frame']) + 1)
+            mask_ele_2 = ET.SubElement(track_ele, 'mask', out_data)
+
+            # Append Track Element to annotations
+            root.append(track_ele)
+            
+    # Update Image Size in XML
+    img_size = root.find('.//original_size')
+    img_size.find('./height').text = str(img_dim[0])
+    img_size.find('./width').text = str(img_dim[1])
+    
+    # Add label tags to XMl
+    labels_tag = root.find('.//labels')
+    for label, color in label_tuples:
+        label_ele = ET.Element('label')
+        label_dict = {'name': label, 'color': color, 'type': 'any', 'attributes':''}
+
+        # Create Element/Text pairs for items in label_dict
+        ele_list = [ET.Element(k) for k in label_dict.keys()]
+        for i, v in enumerate(label_dict.values()):
+            ele_list[i].text = v
+
+        # Add Element/Text pairs to label Element
+        for ele in ele_list:
+            label_ele.append(ele)
+
+        # Add Element to labels Element
+        labels_tag.append(label_ele)
+        
+    # Pretty Printing
+    ET.indent(tree)
+    tree.write(output_filename, encoding='utf-8', xml_declaration=True, short_empty_elements=False)
+
 ##TESTING
-masks, labels, img_dim = xml_to_masks("/home/roar-nexus/Downloads/annotations.xml")
-# roarseg = RoarSegTracker(masks, labels, img_dim)
-import xmltodict
-import json
+masks, labels_dict, img_dim, start_frame, stop_frame = xml_to_masks("/home/roar-nexus/Downloads/annotations.xml")
 
-# Parse the XML file into a Python dictionary
-with open("/home/roar-nexus/Downloads/reupload_cvat_test/annotations.xml", 'r') as file:
-    xml_string = file.read()
-xml_dict = xmltodict.parse(xml_string)
+# TODO: Update method after adding frame range
+frame_to_mask_objects = masks_to_mask_objects(masks, labels_dict, img_dim)
+masks_to_xml(frame_to_mask_objects, 'test_annotations.xml')
+# # roarseg = RoarSegTracker(masks, labels, img_dim)
+# import xmltodict
+# import json
+def xml_to_dict(filename: str) -> dict:
 
-# Convert the dictionary to a JSON string for pretty printing
-json_str = json.dumps(xml_dict, indent=4)
-print(json_str)
+    # Parse the XML file into a Python dictionary
+    with open("/home/roar-nexus/Downloads/reupload_cvat_test/annotations.xml", 'r') as file:
+        xml_string = file.read()
+    xml_dict = xmltodict.parse(xml_string)
+    return xml_dict
 
-# Convert the dictionary back to an XML string
-xml_string_reconstructed = xmltodict.unparse(xml_dict, pretty=True)
-print(xml_string_reconstructed)
+# # Convert the dictionary to a JSON string for pretty printing
+# json_str = json.dumps(xml_dict, indent=4)
+# print(json_str)
 
-# Save the reconstructed XML to a file
-with open('/home/roar-nexus/Downloads/reupload_cvat_test/annotations_reconstructed.xml', 'w') as file:
-    file.write(xml_string_reconstructed)
+# # Convert the dictionary back to an XML string
+def dict_to_xml(xml_dict: dict) -> str:
+    xml_string_reconstructed = xmltodict.unparse(xml_dict, pretty=True)
+    return xml_string_reconstructed
+
+def write_xml(xml_dict: dict, output_filename: str) -> None:
+    xml_string_reconstructed = dict_to_xml(xml_dict)
+
+    # Save the reconstructed XML to a file
+    with open('/home/roar-nexus/Downloads/reupload_cvat_test/annotations_reconstructed.xml', 'w') as file:
+        file.write(xml_string_reconstructed)
 
 
-# Convert the dictionary to a JSON string for pretty printing
-json_str = json.dumps(xml_dict, indent=4)
-print(json_str)
+# # Convert the dictionary to a JSON string for pretty printing
+# json_str = json.dumps(xml_dict, indent=4)
+# print(json_str)
 # import matplotlib.pyplot as plt
 # from tqdm import tqdm
 # for mask in tqdm(masks):
