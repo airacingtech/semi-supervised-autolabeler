@@ -25,7 +25,10 @@ from torchvision import transforms
 class AOTTracker(object):
     def __init__(self, cfg, gpu_id=0):
         self.gpu_id = gpu_id
-        self.model = build_vos_model(cfg.MODEL_VOS, cfg).cuda(gpu_id)
+        #Roar added
+        device = torch.device("cuda:{}".format(gpu_id) if torch.cuda.is_available() else "cpu")
+        ###end of roar added
+        self.model = build_vos_model(cfg.MODEL_VOS, cfg).cuda(device)
         self.model, _ = load_network(self.model, cfg.TEST_CKPT_PATH, gpu_id)
         # self.engine = self.build_tracker_engine(cfg.MODEL_ENGINE,
         #                            aot_model=self.model,

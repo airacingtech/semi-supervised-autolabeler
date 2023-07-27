@@ -123,6 +123,7 @@ class SegTracker():
             frame: numpy array (h,w,3)
             mask: numpy array (h,w)
         '''
+        #TODO: implement add reference on Roar Tracker, gotta use these variable down here vvvv
         self.reference_objs_list.append(np.unique(mask))
         self.curr_idx = self.get_obj_num() + 1
         self.tracker.add_reference_frame(frame,mask, self.curr_idx - 1, frame_step)
