@@ -125,7 +125,7 @@ class RoarSegTracker(SegTracker):
         min_val = 0
         
         for i in range(len(keys)):
-            id = self.get_id_for_mask_array(keys[i])
+            id = self.reference_objs_list[keys[i]].get_id_for_mask_array()
             if i == 0:
                 min_val = keys[i]
                 

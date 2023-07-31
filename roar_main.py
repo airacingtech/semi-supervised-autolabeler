@@ -14,7 +14,8 @@ from scipy.ndimage import binary_dilation
 from datetime import datetime
 import gc
 from tqdm import tqdm
-from concurrent.futures.thread import ThreadPoolExecutor
+# from concurrent.futures.thread import ThreadPoolExecutor
+import threading
 import time
 class MainHub():
     """
@@ -85,6 +86,7 @@ class MainHub():
         next_key_frame = key_frames.pop(0)
         assert next_key_frame < end_frame_idx
         frames = list(range(next_key_frame, end_frame_idx + 1))
+        curr_frame = frames[0]
         with torch.cuda.amp.autocast():
             for curr_frame in tqdm(frames, 
                                    "Processing frame {} of {}".format(curr_frame, 
@@ -121,7 +123,7 @@ class MainHub():
 
                     test_pred_mask = np.unique(pred_mask)
                     self.track_key_frame_mask_objs[curr_frame] = \
-                        self.roarsegtracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
+                        roar_seg_tracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
                 
                 #cuda
                 torch.cuda.empty_cache()
@@ -139,9 +141,23 @@ class MainHub():
         key_frame_to_masks = self.roarsegtracker.get_key_frame_to_masks()
         img_dim = self.roarsegtracker.get_img_dim()
         label_to_color = self.roarsegtracker.get_label_to_color()
-        # threads = []
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
+        threads = []
+        #with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+        #    for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
+        #        key_frame = key_frame_queue[i]
+        #        end_frame_idx = key_frame_queue[i + 1]
+        #        key_frame_arr = [key_frame]
+        #        roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
+        #        roartracker.restart_tracker()
+        #        roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},  
+        #                                            start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
+        #                                            img_dim=img_dim, label_to_color=label_to_color, 
+        #                                            key_frame_arr=key_frame_arr)
+        #        # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
+        #        executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
+        #        # thread.start()
+        #        # threads.append(thread)
+        for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
                 key_frame = key_frame_queue[i]
                 end_frame_idx = key_frame_queue[i + 1]
                 key_frame_arr = [key_frame]
@@ -151,10 +167,14 @@ class MainHub():
                                                     start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
                                                     img_dim=img_dim, label_to_color=label_to_color, 
                                                     key_frame_arr=key_frame_arr)
-                # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
-                executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
-                # thread.start()
-                # threads.append(thread)
+                thread = threading.Thread(target=self.track_set_frames, args=(roartracker, key_frame_arr, end_frame_idx))
+                thread.start()
+                threads.append(thread)
+        mid_time = time.time()
+        for thread in threads:
+            thread.join()
+        end_time = time.time()
+        print("Finished thread creation at {} secs and finished at {} secs".format(mid_time - start_time, end_time - start_time))
             
                     
         
