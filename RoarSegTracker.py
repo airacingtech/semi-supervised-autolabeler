@@ -15,6 +15,7 @@ from tqdm import tqdm
 from seg_track_anything import draw_mask
 from SegTracker import SegTracker
 import pickle
+import gc
 
 class RoarSegTracker(SegTracker):
     def __init__(self,segtracker_args, sam_args, aot_args) -> None:
@@ -67,6 +68,10 @@ class RoarSegTracker(SegTracker):
         return self.end_frame_idx
     
     def new_tracker(self):
+        tracker = self.tracker
+        self.tracker = None
+        del tracker
+        gc.collect()
         self.tracker = get_aot(self.aot_args)
     def start_seg_tracker_for_cvat(self, annotation_dir=""):
         '''Prime seg tracker for use with cvat export
@@ -187,9 +192,10 @@ class RoarSegTracker(SegTracker):
         """
         mask_objs = {}
         masks_and_ids = self.separate_masks(pred_mask)
-        for mask_and_id in tqdm(masks_and_ids, "Creating mask objects from frame: "):
+        # for mask_and_id in tqdm(masks_and_ids, "Creating mask objects from frame: "):
+        for mask_and_id in masks_and_ids:
             # test_mask = np.unique(mask)
-            mask_obj = rt.MaskObject()
+            mask_obj = rt.MaskObject(data={})
             mask_img, id = mask_and_id
             id = self.class_obj[id]
             id = mask_obj.find_orig_id(id) #because obj id 0 exists which is bad when background is also 0, id from get_id_from_array offset by 1
@@ -199,6 +205,7 @@ class RoarSegTracker(SegTracker):
             color = self.label_to_color[label]['color']
             mask_obj.turn_mask_array_to_dict(mask_img, id, label, frame, color)
             mask_obj.start_0 = mask_objs_at_key_frame[id].start_0
+            # FIXME: make sure the track id is correct. 
             mask_objs[mask_obj.get_id()] = mask_obj
         return mask_objs
             

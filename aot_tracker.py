@@ -27,6 +27,7 @@ class AOTTracker(object):
         self.gpu_id = gpu_id
         #Roar added
         device = torch.device("cuda:{}".format(gpu_id) if torch.cuda.is_available() else "cpu")
+        print("device: ", device)
         ###end of roar added
         self.model = build_vos_model(cfg.MODEL_VOS, cfg).cuda(device)
         self.model, _ = load_network(self.model, cfg.TEST_CKPT_PATH, gpu_id)

@@ -68,6 +68,9 @@ class MainHub():
         with open(file_path, 'rb') as outfile:
             tracker_serial_data = outfile.read()
         self.roarsegtracker = RoarSegTracker.load_data(tracker_serial_data)
+    def track_frame(self, frames = []):
+        #TODO: track through specified start and stop frame, modularize track function
+        return
     def track(self):
         """
         Main function for tracking
@@ -94,9 +97,9 @@ class MainHub():
         frames = list(range(curr_frame, end_frame+1))
         with torch.cuda.amp.autocast():
             for curr_frame in tqdm(frames, "Processing frames... "):
-                if curr_frame == 2015:
+                # if curr_frame % 500 == 0:
                     
-                    print("day of reckoning")
+                #     print("day of reckoning")
                 frame = rt.get_image(self.photo_dir, curr_frame)
                 if curr_frame == next_key_frame:
                     #segment
@@ -127,8 +130,6 @@ class MainHub():
                 elif curr_frame % self.roarsegtracker.sam_gap == 0 and self.use_sam_gap:
                     #resegment on sam gap
                     pass
-                elif curr_frame == 785:
-                    break;
                 else:
                     #TODO: create mask object from pred_mask
                     pred_mask = self.roarsegtracker.track(frame, update_memory=True)
@@ -136,6 +137,8 @@ class MainHub():
                     test_pred_mask = np.unique(pred_mask)
                     self.track_key_frame_mask_objs[curr_frame] = \
                         self.roarsegtracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
+                    if curr_frame == 88:
+                        print('88')
                 if self.store:
                     self.store_tracker(frame=str(curr_frame))
                 #cuda
@@ -175,9 +178,12 @@ def main():
     'max_obj_num': 255, # maximal object number to track in a video
     'min_new_obj_iou': 0.8, # the area of a new object in the background should > 80% 
     }
-    main_path = "/home/roar-nexus/Segment-and-Track-Anything/roar_annotations/23"
+    job = 251
+    main_path = "/home/roar-nexus/Segment-and-Track-Anything/roar_annotations/" + str(job)
     photo_dir = os.path.join(main_path, "images")
     annotation_path = os.path.join(main_path, "annotations.xml")
+    if not os.path.exists(annotation_path) or not os.path.exists(photo_dir):
+        return RuntimeError("annotations.xml or images directory not found")
     output_dir = os.path.join(main_path, "output")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
