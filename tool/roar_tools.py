@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class MaskObject():
     """MaskObject class representation
     """
-    def __init__(self, frame: int = 0, mask: dict = {}, id: int = 0, label="", color_id="", data={}, img_dim = (0, 0)):
+    def __init__(self, frame: int = 0, mask: dict = {}, id: int = 0, label="", color_id="", data: dict={}, img_dim = (0, 0)):
             self.frame = frame
             self.mask = mask
             self.id = id
@@ -91,7 +91,7 @@ class MaskObject():
         """
         self.data['rle'], self.data['width'], self.data['height'], \
         self.data['top'], self.data['left'], self.img_dim = img_to_mask(mask_array)
-        self.data['rle'] = self.fix_rle(self.data['rle'])
+        # self.data['rle'] = self.fix_rle(self.data['rle'])
         self.data['id'] = int(id)
         self.data['label'] = str(label)
         self.data['frame'] = int(frame)
@@ -360,7 +360,8 @@ def masks_to_mask_objects(masks: list, labels_dict: dict, img_dim: dict, start_f
             
     return frame_to_mask_objects
 import json
-
+def masks_to_xml_with_key_frame():
+    return
 def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int, stop_frame: int, output_filename: str) -> None:
     """Takes a dictionary of frame to mask objects and writes Annotations XML file.
 
@@ -374,7 +375,6 @@ def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int
     root = tree.getroot()
     
     # Calculate frame data
-    # TODO: Update with proper frame data
     frame_start = start_frame
     frame_end = stop_frame
     frame_count = frame_end - frame_start + 1
@@ -419,9 +419,9 @@ def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int
 
             # Update attributes for second mask
             out_data['outside'] = '1'
-            # out_data['frame'] = str(int(out_data['frame']) + 1)
+            out_data['frame'] = str(int(out_data['frame']) + 1)
             #kevin try edit
-            out_data['frame'] = str(mask.get_frame())
+            # out_data['frame'] = str(mask.get_frame())
             mask_ele_2 = ET.SubElement(track_ele, 'mask', out_data)
 
             # Append Track Element to annotations
@@ -459,20 +459,21 @@ if __name__ == '__main__':
     masks, labels_dict, img_dim, start_frame, stop_frame = xml_to_masks("/home/roar-nexus/Downloads/annotations.xml")
 
     # # TODO: Update method after adding frame range
-    frame_to_mask_objects = masks_to_mask_objects(masks, labels_dict, img_dim)
-    for key_frame, mask_objects in frame_to_mask_objects.items():
+    frame_to_mask_objects  = masks_to_mask_objects(masks, labels_dict, img_dim, 0, '')
+    masks_to_xml(frame_to_mask_objects, 0, 3092, '/home/roar-nexus/Segment-and-Track-Anything/roar_annotations/23/output/annotations_output/test_annotations.xml')
+    # for key_frame, mask_objects in frame_to_mask_objects.items():
 
-        for mask_id, mask_obj in mask_objects.items():
-            data = mask_obj.get_data()
-            img = mask_obj.get_mask_array()
-            rle, width, height, top, left, img_shape = img_to_mask(img)
-            rle = mask_obj.fix_rle(rle)
-            assert np.array_equal(rle, data['rle'])
-            assert width == data['width']
-            assert height == data['height']
-            assert top == data['top']
-            assert left == data['left']
-            assert np.array_equal(img_shape, mask_obj.img_dim)
+    #     for mask_id, mask_obj in mask_objects.items():
+    #         data = mask_obj.get_data()
+    #         img = mask_obj.get_mask_array()
+    #         rle, width, height, top, left, img_shape = img_to_mask(img)
+    #         rle = mask_obj.fix_rle(rle)
+    #         assert np.array_equal(rle, data['rle'])
+    #         assert width == data['width']
+    #         assert height == data['height']
+    #         assert top == data['top']
+    #         assert left == data['left']
+    #         assert np.array_equal(img_shape, mask_obj.img_dim)
         
 # masks_to_xml(frame_to_mask_objects, int(start_frame), int(stop_frame), '/home/roar-nexus/Downloads/test_annotations.xml')
 # # roarseg = RoarSegTracker(masks, labels, img_dim)

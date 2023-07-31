@@ -185,9 +185,9 @@ class MainHub():
         frames = list(range(curr_frame, end_frame+1))
         with torch.cuda.amp.autocast():
             for curr_frame in tqdm(frames, "Processing frames... "):
-                if curr_frame == 2015:
+                # if curr_frame % 500 == 0:
                     
-                    print("day of reckoning")
+                #     print("day of reckoning")
                 frame = rt.get_image(self.photo_dir, curr_frame)
                 if curr_frame == next_key_frame:
                     #segment
@@ -218,8 +218,6 @@ class MainHub():
                 elif curr_frame % self.roarsegtracker.sam_gap == 0 and self.use_sam_gap:
                     #resegment on sam gap
                     pass
-                elif curr_frame == 785:
-                    break;
                 else:
                     #TODO: create mask object from pred_mask
                     pred_mask = self.roarsegtracker.track(frame, update_memory=True)
@@ -227,6 +225,8 @@ class MainHub():
                     test_pred_mask = np.unique(pred_mask)
                     self.track_key_frame_mask_objs[curr_frame] = \
                         self.roarsegtracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
+                    if curr_frame == 88:
+                        print('88')
                 if self.store:
                     self.store_tracker(frame=str(curr_frame))
                 #cuda
@@ -272,6 +272,8 @@ def main():
     main_path = os.path.join(root, str(job_id))
     photo_dir = os.path.join(main_path, "images")
     annotation_path = os.path.join(main_path, "annotations.xml")
+    if not os.path.exists(annotation_path) or not os.path.exists(photo_dir):
+        return RuntimeError("annotations.xml or images directory not found")
     output_dir = os.path.join(main_path, "output")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
