@@ -368,7 +368,9 @@ def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int
         frame_masks (dict): output of masks_to_mask_objects(). Key is frame number, value is dict of mask objects mapped by object id
         output_filename (str): file name to write XML file
     """
-    tree = ET.parse('/home/roar-nexus/Segment-and-Track-Anything/tool/template_annotations.xml')
+    root = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(root, 'template_annotations.xml')
+    tree = ET.parse(template_path)
     root = tree.getroot()
     
     # Calculate frame data

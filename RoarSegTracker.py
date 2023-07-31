@@ -80,13 +80,24 @@ class RoarSegTracker(SegTracker):
             return
         masks, labels_dict, img_dim, start_frame, stop_frame = rt.xml_to_masks(annotation_dir)
         key_frame_idx_to_mask_objs = rt.masks_to_mask_objects(masks, 
-                                                              labels_dict, img_dim, int(start_frame), blacklist=self.blacklist)
+                                                              labels_dict, img_dim, int(start_frame), 
+                                                              blacklist=self.blacklist)
         self.start_frame_idx = int(start_frame)
         self.end_frame_idx = int(stop_frame)
         self.img_dim = (img_dim['height'], img_dim['width'])
         self.set_label_to_color(labels_dict)
         self.set_key_frame_to_masks(key_frame_idx_to_mask_objs)
         self.set_key_frame_arr(list(self.get_key_frame_to_masks().keys()))
+        
+    def setup_tracker_by_values(self, key_frame_to_masks={}, start_frame_idx: int = 0, 
+                                end_frame_idx: int = 0, img_dim = [], label_to_color= {}, 
+                                key_frame_arr=[]):
+        self.start_frame_idx = start_frame_idx
+        self.end_frame_idx = end_frame_idx
+        self.img_dim = img_dim
+        self.set_label_to_color(label_to_color)
+        self.set_key_frame_to_masks(key_frame_to_masks)
+        self.set_key_frame_arr(key_frame_arr)
         
     def create_origin_mask(self, key_frame_idx=0) ->  np.array:
         """Create origin mask for tracking
@@ -107,14 +118,15 @@ class RoarSegTracker(SegTracker):
         keys = list(mask_objects.keys())
         keys.sort()
         min_val = 0
+        
         for i in range(len(keys)):
+            id = self.get_id_for_mask_array(keys[i])
             if i == 0:
                 min_val = keys[i]
-                self.class_obj[keys[i] + 1 - min_val] = keys[i] + 1
-            else:
-                self.class_obj[keys[i] + 1 - min_val] = keys[i] + 1
+                
+            self.class_obj[id - min_val] = id
         for mask_object in tqdm(mask_objects.values()):
-            img = mask_object.get_mask_array() #adds + 1 to orignal id to make sure not 0 like background
+            img = mask_object.get_mask_array() #adds + 1 to original id to make sure not 0 like background
             filter_mask = img != 0
             test_img_correct = np.unique(img)
             origin_merged_mask[filter_mask] = img[filter_mask]
