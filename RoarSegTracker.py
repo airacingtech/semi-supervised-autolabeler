@@ -130,12 +130,20 @@ class RoarSegTracker(SegTracker):
                 min_val = keys[i]
                 
             self.class_obj[id - min_val] = id
-        for mask_object in tqdm(mask_objects.values()):
-            img = mask_object.get_mask_array() #adds + 1 to original id to make sure not 0 like background
-            filter_mask = img != 0
-            test_img_correct = np.unique(img)
+            mask_object = mask_objects[keys[i]]
+            img = mask_object.get_mask_array()
+            filter_mask = (img != 0)
+            img = filter_mask.astype(int)
+            img *= (id - min_val)
+            test_img_correct = np.unique(filter_mask)
             origin_merged_mask[filter_mask] = img[filter_mask]
             test_img_correct_post = np.unique(origin_merged_mask)
+        # for mask_object in tqdm(mask_objects.values()):
+        #     img = mask_object.get_mask_array() #adds + 1 to original id to make sure not 0 like background
+        #     filter_mask = img != 0
+        #     test_img_correct = np.unique(img)
+        #     origin_merged_mask[filter_mask] = img[filter_mask]
+        #     test_img_correct_post = np.unique(origin_merged_mask)
             
             
             # self.class_obj[mask_object.get_id()] = mask_object.get_label()

@@ -14,8 +14,8 @@ from scipy.ndimage import binary_dilation
 from datetime import datetime
 import gc
 from tqdm import tqdm
-# from concurrent.futures.thread import ThreadPoolExecutor
-import threading
+from concurrent.futures.thread import ThreadPoolExecutor
+# import threading
 import time
 class MainHub():
     """
@@ -142,8 +142,22 @@ class MainHub():
         img_dim = self.roarsegtracker.get_img_dim()
         label_to_color = self.roarsegtracker.get_label_to_color()
         threads = []
-        #with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-        #    for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
+        executor = ThreadPoolExecutor(max_workers=self.max_workers)
+        for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
+            key_frame = key_frame_queue[i]
+            end_frame_idx = key_frame_queue[i + 1]
+            key_frame_arr = [key_frame]
+            roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
+            roartracker.restart_tracker()
+            roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},  
+                                                start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
+                                                img_dim=img_dim, label_to_color=label_to_color, 
+                                                key_frame_arr=key_frame_arr)
+            # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
+            executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
+            # thread.start()
+            # threads.append(thread)
+        #for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
         #        key_frame = key_frame_queue[i]
         #        end_frame_idx = key_frame_queue[i + 1]
         #        key_frame_arr = [key_frame]
@@ -153,26 +167,12 @@ class MainHub():
         #                                            start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
         #                                            img_dim=img_dim, label_to_color=label_to_color, 
         #                                            key_frame_arr=key_frame_arr)
-        #        # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
-        #        executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
-        #        # thread.start()
-        #        # threads.append(thread)
-        for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
-                key_frame = key_frame_queue[i]
-                end_frame_idx = key_frame_queue[i + 1]
-                key_frame_arr = [key_frame]
-                roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
-                roartracker.restart_tracker()
-                roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},  
-                                                    start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
-                                                    img_dim=img_dim, label_to_color=label_to_color, 
-                                                    key_frame_arr=key_frame_arr)
-                thread = threading.Thread(target=self.track_set_frames, args=(roartracker, key_frame_arr, end_frame_idx))
-                thread.start()
-                threads.append(thread)
+        #        thread = threading.Thread(target=self.track_set_frames, args=(roartracker, key_frame_arr, end_frame_idx))
+        #        thread.start()
+        #        threads.append(thread)
         mid_time = time.time()
-        for thread in threads:
-            thread.join()
+        #for thread in threads:
+        #    thread.join()
         end_time = time.time()
         print("Finished thread creation at {} secs and finished at {} secs".format(mid_time - start_time, end_time - start_time))
             
@@ -205,9 +205,9 @@ class MainHub():
         frames = list(range(curr_frame, end_frame+1))
         with torch.cuda.amp.autocast():
             for curr_frame in tqdm(frames, "Processing frames... "):
-                # if curr_frame % 500 == 0:
+                if curr_frame % 2187 == 0:
                     
-                #     print("day of reckoning")
+                    print("day of reckoning")
                 frame = rt.get_image(self.photo_dir, curr_frame)
                 if curr_frame == next_key_frame:
                     #segment
@@ -218,6 +218,9 @@ class MainHub():
                     gc.collect()
                     
                     pred_mask = self.get_segmentations(key_frame_idx=curr_frame)
+                    # if curr_frame == 2187:
+                    #     plt.imshow(pred_mask)
+                    #     plt.show()
                     
                     self.roarsegtracker.set_curr_key_frame(next_key_frame)
                     
@@ -231,7 +234,7 @@ class MainHub():
                     #cuda
                     torch.cuda.empty_cache()
                     gc.collect()
-                    
+                    test_pred = np.unique(pred_mask)
                     self.roarsegtracker.add_reference_with_label(frame, pred_mask)
                     if len(key_frame_queue) > 0:
                         next_key_frame = key_frame_queue.pop(0)
@@ -241,6 +244,9 @@ class MainHub():
                 else:
                     #TODO: create mask object from pred_mask
                     pred_mask = self.roarsegtracker.track(frame, update_memory=True)
+                    # if curr_frame > 2187:
+                    #     plt.imshow(pred_mask)
+                    #     plt.show()
                     
                     test_pred_mask = np.unique(pred_mask)
                     self.track_key_frame_mask_objs[curr_frame] = \
@@ -286,7 +292,7 @@ def main():
     'max_obj_num': 255, # maximal object number to track in a video
     'min_new_obj_iou': 0.8, # the area of a new object in the background should > 80% 
     }
-    job_id = 264
+    job_id = 251
     root = os.path.dirname(os.path.abspath(__file__))
     root = os.path.join(root, "roar_annotations")
     main_path = os.path.join(root, str(job_id))
@@ -303,8 +309,8 @@ def main():
                        output_dir=output_dir)
     
     #start tracking
-    # main_hub.track()   
-    main_hub.multi_trackers()
+    main_hub.track()   
+    # main_hub.multi_trackers()
     
     #save annotations
     # main_hub.store_tracker(frame="3093")
