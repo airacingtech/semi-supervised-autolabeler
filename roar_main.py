@@ -38,7 +38,7 @@ class MainHub():
         self.use_sam_gap = False
         self.store = False
         #multithreading
-        self.max_workers =1
+        self.max_workers = 2
         
     def get_segmentations(self, key_frame_idx=0):
         
@@ -292,6 +292,7 @@ def main():
     'max_obj_num': 255, # maximal object number to track in a video
     'min_new_obj_iou': 0.8, # the area of a new object in the background should > 80% 
     }
+    start_time = time.time()
     job_id = 251
     root = os.path.dirname(os.path.abspath(__file__))
     root = os.path.join(root, "roar_annotations")
@@ -311,10 +312,13 @@ def main():
     #start tracking
     # main_hub.track()   
     main_hub.multi_trackers()
-    
+    mid_time = time.time()
     #save annotations
     # main_hub.store_tracker(frame="3093")
     main_hub.save_annotations()
+    end_time = time.time()
+    print("Finished Tracking in {} secs and finished writing annotations in {} secs".\
+        format(mid_time - start_time, end_time - mid_time))
     del main_hub
     torch.cuda.empty_cache()
     gc.collect()
