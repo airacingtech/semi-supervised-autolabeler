@@ -134,7 +134,7 @@ class MainHub():
         each given key frame up to MAX_WORKERS at a time.
         """
         self.set_tracker(annontation_dir=self.annotation_dir)
-        start_time = time.time()
+        
         key_frame_queue = self.roarsegtracker.get_key_frame_arr()[:]
         end_frame_idx = self.roarsegtracker.end_frame_idx
         key_frame_queue.append(end_frame_idx)
@@ -170,11 +170,11 @@ class MainHub():
         #        thread = threading.Thread(target=self.track_set_frames, args=(roartracker, key_frame_arr, end_frame_idx))
         #        thread.start()
         #        threads.append(thread)
-        mid_time = time.time()
+        
         #for thread in threads:
         #    thread.join()
-        end_time = time.time()
-        print("Finished thread creation at {} secs and finished at {} secs".format(mid_time - start_time, end_time - start_time))
+        
+        
             
                     
         
@@ -308,9 +308,9 @@ def main():
     main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
                        photo_dir=photo_dir, annotation_dir=annotation_path,
                        output_dir=output_dir)
-    
+    start_time = time.time() 
     #start tracking
-    # main_hub.track()   
+    # main_hub.track()  
     main_hub.multi_trackers()
     mid_time = time.time()
     #save annotations
@@ -323,7 +323,10 @@ def main():
     torch.cuda.empty_cache()
     gc.collect()
     print("Done!") 
-    
+  
+  
+### Other tools
+  
 if __name__ == "__main__":
     main()
                 
