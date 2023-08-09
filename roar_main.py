@@ -26,6 +26,7 @@ class MainHub():
     
     Class structure of main for use of RoarSegTracker
     """
+    MAX_WORKERS = 3
     def __init__(self, segtracker_args={}, sam_args={}, aot_args={}, photo_dir="", 
                  annotation_dir="", output_dir=""):
         self.segtracker_args = segtracker_args
@@ -41,8 +42,10 @@ class MainHub():
         self.use_sam_gap = False
         self.store = False
         #multithreading
-        self.max_workers = 3
-        
+        self.max_workers = MainHub.MAX_WORKERS
+    def setup(self):
+        #TODO: add setup to modulate main tracking methods?
+        return
     def get_segmentations(self, key_frame_idx=0):
         
         origin_merged_mask = self.roarsegtracker.create_origin_mask(key_frame_idx)
@@ -191,47 +194,55 @@ class MainHub():
         #             # print(traceback.format_exc())
         #             print(f"Skipping frame {frame} due to exception")
         #             continue
+        
+        
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            new_frame = new_frames.pop(0)
-            for frame in tqdm(past_key_frames, "Processing new frame to past key frames: "):
-                if frame > new_frame:
-                    
-                    key_frame_arr = [new_frame]
-                    roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
-                    roartracker.restart_tracker()
-                    roartracker.setup_tracker_by_values(key_frame_to_masks=\
-                    {new_frame: self.track_key_frame_mask_objs[new_frame]},  
-                                                    start_frame_idx=new_frame, end_frame_idx=frame, 
-                                                    img_dim=self.roarsegtracker.get_img_dim(), 
-                                                    label_to_color=self.roarsegtracker.get_label_to_color(),
-                                                    key_frame_arr=key_frame_arr)
-                    executor.submit(self.track_set_frames, roartracker, key_frame_arr, frame)
-                    if len(new_frames) > 0:
-                        new_frame = new_frames.pop(0)
-                    else:
-                        new_frame = None
-                        break
-            if new_frame is not None:
-                key_frame_queue = [new_frame] + new_frames
-                assert end_frame_idx > key_frame_queue[-1]
-                key_frame_queue.append(end_frame_idx)
-                for i in tqdm(range(len(key_frame_queue) - 1), 
-                              "Processing new frames to end frame: "):
-                    key_frame = key_frame_queue[i]
-                    end_frame_idx = key_frame_queue[i + 1]
-                    if end_frame_idx != key_frame_queue[-1]:
-                        end_frame_idx -= 1
-                    key_frame_arr = [key_frame]
-                    roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
-                    roartracker.restart_tracker()
-                    roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: 
-                        self.track_key_frame_mask_objs[key_frame]},  
-                                                    start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
-                                                    img_dim=self.roarsegtracker.get_img_dim(), 
-                                                    label_to_color=self.roarsegtracker.get_label_to_color(),
-                                                    key_frame_arr=key_frame_arr)
-                    # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
-                    executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
+            try:
+                new_frame = new_frames.pop(0)
+                for frame in tqdm(past_key_frames, "Processing new frame to past key frames: "):
+                    if frame > new_frame:
+                        
+                        key_frame_arr = [new_frame]
+                        roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
+                        roartracker.restart_tracker()
+                        roartracker.setup_tracker_by_values(key_frame_to_masks=\
+                        {new_frame: self.track_key_frame_mask_objs[new_frame]},  
+                                                        start_frame_idx=new_frame, end_frame_idx=frame, 
+                                                        img_dim=self.roarsegtracker.get_img_dim(), 
+                                                        label_to_color=self.roarsegtracker.get_label_to_color(),
+                                                        key_frame_arr=key_frame_arr)
+                        
+                        executor.submit(self.track_set_frames, roartracker, key_frame_arr, frame)
+                        if len(new_frames) > 0:
+                            new_frame = new_frames.pop(0)
+                        else:
+                            new_frame = None
+                            break
+                if new_frame is not None:
+                    key_frame_queue = [new_frame] + new_frames
+                    assert end_frame_idx > key_frame_queue[-1]
+                    key_frame_queue.append(end_frame_idx)
+                    for i in tqdm(range(len(key_frame_queue) - 1), 
+                                "Processing new frames to end frame: "):
+                        key_frame = key_frame_queue[i]
+                        end_frame_idx = key_frame_queue[i + 1]
+                        if end_frame_idx != key_frame_queue[-1]:
+                            end_frame_idx -= 1
+                        key_frame_arr = [key_frame]
+                        roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
+                        roartracker.restart_tracker()
+                        roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: 
+                            self.track_key_frame_mask_objs[key_frame]},  
+                                                        start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
+                                                        img_dim=self.roarsegtracker.get_img_dim(), 
+                                                        label_to_color=self.roarsegtracker.get_label_to_color(),
+                                                        key_frame_arr=key_frame_arr)
+                        
+                        # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
+                        executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
+            except Exception as e:
+                print(f"An exception occurred: {e}")
+        
                     
                 
                 
@@ -245,26 +256,32 @@ class MainHub():
         end_frame_idx = self.roarsegtracker.end_frame_idx
         key_frame_queue.append(end_frame_idx)
         key_frame_to_masks = self.roarsegtracker.get_key_frame_to_masks()
+        
         img_dim = self.roarsegtracker.get_img_dim()
         label_to_color = self.roarsegtracker.get_label_to_color()
         threads = []
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
-                key_frame = key_frame_queue[i]
-                end_frame_idx = key_frame_queue[i + 1]
-                if end_frame_idx != key_frame_queue[-1]:
-                        end_frame_idx -= 1
-                key_frame_arr = [key_frame]
-                roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
-                roartracker.restart_tracker()
-                roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},  
-                                                    start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
-                                                    img_dim=img_dim, label_to_color=label_to_color, 
-                                                    key_frame_arr=key_frame_arr)
-                # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
-                executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
-                # thread.start()
-                # threads.append(thread)
+            try:
+                for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
+                    key_frame = key_frame_queue[i]
+                    end_frame_idx = key_frame_queue[i + 1]
+                    if end_frame_idx != key_frame_queue[-1]:
+                            end_frame_idx -= 1
+                    key_frame_arr = [key_frame]
+                    roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
+                    roartracker.restart_tracker()
+                    roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},  
+                                                        start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
+                                                        img_dim=img_dim, label_to_color=label_to_color, 
+                                                        key_frame_arr=key_frame_arr)
+                    # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
+                    executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame_idx)
+                    # thread.start()
+                    # threads.append(thread)
+            except Exception as e:
+                print(f"An exception occurred: {e}")
+                
+                
         #for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
         #        key_frame = key_frame_queue[i]
         #        end_frame_idx = key_frame_queue[i + 1]
@@ -281,6 +298,7 @@ class MainHub():
         
         #for thread in threads:
         #    thread.join()
+        
         
         
             
@@ -367,7 +385,12 @@ class MainHub():
                 torch.cuda.empty_cache()
                 gc.collect()
                 
-    def save_annotations(self):
+    def save_annotations(self) -> str:
+        """Save the annotations to designate output dir
+        
+        Args: None
+        
+        Returns: str of file path to zip file containing annotations.xml"""
         folder_name = "annotations_output"
         folder_path = os.path.join(self.output_dir, folder_name)
         if not os.path.exists(folder_path):
@@ -377,13 +400,16 @@ class MainHub():
         if not os.path.exists(file_path):
             with open(file_path, 'w') as outfile:
                 outfile.write("set RoarSegTracker use\n")
-        rt.masks_to_xml(self.track_key_frame_mask_objs, 
+        
+        zip_fp = rt.masks_to_xml(self.track_key_frame_mask_objs, 
                         self.roarsegtracker.get_start_frame_idx(), 
                         self.roarsegtracker.get_end_frame_idx(), file_path)
+        return zip_fp
+        
     def tune(self):
         #TODO: add tuning on first frame with gui to adjust tuning values for tracking
         return
-        
+     
 def main():
     sam_args['generator_args'] = {
         'points_per_side': 30,
@@ -404,6 +430,7 @@ def main():
     resegment_ans = input("Is this a resegmentation task? (y/n): ")
     resegment = (resegment_ans == 'y' or resegment_ans == 'Y')
     repeat = True
+    ###Gather User Data
     while repeat:
         job_id = int(input("Enter job id: "))
         if job_id < 0:
@@ -413,6 +440,7 @@ def main():
             check = input("Is the job id: {} correct? (y/n): ".format(job_id))
             repeat = not (check == 'y' or check == 'Y')
     
+    ###Create User Files
     root = os.path.dirname(os.path.abspath(__file__))
     root = os.path.join(root, "roar_annotations")
     
@@ -425,6 +453,7 @@ def main():
         file_handler.move_download_to_resegment(job_id=job_id)
     start_time = time.time()
     # job_id = 262
+    
     
     main_path = os.path.join(root, str(job_id))
     photo_dir = os.path.join(main_path, "images")
@@ -442,6 +471,8 @@ def main():
     reseg_path = os.path.join(reseg_dir, "annotations.xml")
     q = input("Would you like to reuse output annotation? (y/n): ")
     reuse = (q == 'y' or q == 'Y')
+    
+    ###If want to reuse previous output annotation
     if reuse:
         annotations_output = os.path.join(output_dir, "annotations_output")
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
@@ -453,6 +484,13 @@ def main():
     start_time = time.time() 
     reseg_idx = 1
     #start tracking
+    multithread_ans = input("Do you want to use multithreading? (y/n): ")
+    multithread = (multithread_ans == 'y' or multithread_ans == 'Y')
+    check_worker_input = lambda x: (int(x) < main_hub.max_workers and int(x) > 0)
+    convert_func = lambda x: int(x)
+    max_workers = rt.get_correct_input(check_worker_input, convert_func, "indicate max threads (int): ")
+    main_hub.max_workers = max_workers5
+    
     if resegment:
         resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)
         repeat = True
@@ -468,8 +506,7 @@ def main():
             repeat =  not (repeat_ans == 'y' or repeat_ans == 'Y')
             
             
-        multithread_ans = input("Do you want to use multithreading? (y/n): ")
-        multithread = (multithread_ans == 'y' or multithread_ans == 'Y')
+        
         
         annotations_output = os.path.join(output_dir, "annotations_output")
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
@@ -490,9 +527,10 @@ def main():
         
                 
     else:
-        
-        # main_hub.track()  
-        main_hub.multi_trackers()
+        if not multithread:
+            main_hub.track()  
+        else:
+            main_hub.multi_trackers()
         key_frame_arr = main_hub.roarsegtracker.get_key_frame_arr()
         
     mid_time = time.time()

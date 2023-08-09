@@ -9,6 +9,7 @@ import sys
 import os
 from PIL import Image
 import re
+from zipfile import ZipFile
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from RoarSegTracker import RoarSegTracker
 # from RoarSegTracker import RoarSegTracker
@@ -360,14 +361,18 @@ def masks_to_mask_objects(masks: list, labels_dict: dict, img_dim: dict, start_f
             
     return frame_to_mask_objects
 import json
+
 def masks_to_xml_with_key_frame():
     return
-def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int, stop_frame: int, output_filename: str) -> None:
+def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int, stop_frame: int, output_filename: str) -> str:
     """Takes a dictionary of frame to mask objects and writes Annotations XML file.
 
     Args:
         frame_masks (dict): output of masks_to_mask_objects(). Key is frame number, value is dict of mask objects mapped by object id
         output_filename (str): file name to write XML file
+        
+    Returns:
+        str of ile path to teh zip compressed file
     """
     root = os.path.dirname(os.path.abspath(__file__))
     template_path = os.path.join(root, 'template_annotations.xml')
@@ -453,7 +458,18 @@ def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int
     # Pretty Printing
     ET.indent(tree)
     tree.write(output_filename, encoding='utf-8', xml_declaration=True, short_empty_elements=False)
-    
+    zip_file_path = os.path.join(os.path.dirname(output_filename), "annotation.zip")
+    with ZipFile(zip_file_path, 'w') as zip:
+        zip.write(output_filename)
+    return zip_file_path
+def get_correct_input(bool_func=lambda x: x, process_function= lambda x: x, question: str = "Question details"):
+    repeat = True
+    while repeat:
+        answer = input(question)
+        answer = process_function(answer)
+        check = input("is your input: {} correct? (y/n)".format(answer))
+        repeat = ((check == 'y' or check == 'Y') and not bool_func(answer))
+    return answer   
 if __name__ == '__main__':
     ##TESTING
     masks, labels_dict, img_dim, start_frame, stop_frame = xml_to_masks("/home/roar-nexus/Downloads/annotations.xml")
