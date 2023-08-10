@@ -3,14 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Viewer & Upload</title>
+    <title>Form Submission and Image Viewer</title>
+    <script>
+        function updateForm() {
+            let dropdown = document.getElementById("segmentationDropdown");
+            let value = dropdown.options[dropdown.selectedIndex].value;
+            let framesDiv = document.getElementById("framesDiv");
+            if (value === "resegmentation") {
+                framesDiv.style.display = "block";
+            } else {
+                framesDiv.style.display = "none";
+            }
+        }
+
+        function onSubmit() {
+            let formData = new FormData(document.getElementById('userForm'));
+            let output = "";
+            for (let [key, value] of formData.entries()) {
+                output += key + ": " + value + "<br>";
+            }
+            document.getElementById("output").innerHTML = output;
+            return false;  // prevent actual form submission for demonstration
+        }
+    </script>
 </head>
 <body>
 
-<h3>Upload File</h3>
-<form action="/upload" method="POST" enctype="multipart/form-data">
-    <input type="file" name="file">
-    <input type="submit" value="Upload">
+<h3>Server Configuration</h3>
+<form>
+    <input type="text" id="serverAddress" placeholder="Enter Server Address">
+    <button type="button" onclick="configureServer()">Configure</button>
 </form>
 
 <h3>Image Display & Controls</h3>
@@ -18,21 +40,43 @@
 <br>
 <button onclick="backward()">Backward</button>
 <button onclick="forward()">Forward</button>
+<br><br>
+
+<h3>Job Configuration</h3>
+<form id="userForm" onsubmit="return onSubmit()" action="/submit_form" method="post">
+    Threads: <input type="number" name="threads"><br><br>
+    Job: 
+    <select name="jobType" id="segmentationDropdown" onchange="updateForm()">
+        <option value="initial segmentation">Initial Segmentation</option>
+        <option value="resegmentation">Resegmentation</option>
+    </select><br><br>
+    Job ID: <input type="number" name="jobId"><br><br>
+    Reuse Annotation Output: <input type="checkbox" name="reuseAnnotation"><br><br>
+    <div id="framesDiv" style="display:none;">
+        List of Frame Numbers (comma-separated): <input type="text" name="frames"><br><br>
+    </div>
+    <input type="submit" value="Submit">
+</form>
+
+<h3>Form Data Output</h3>
+<div id="output"></div>
 
 <script>
-function updateImage(url) {
-    document.getElementById("displayImage").src = url;
+function configureServer() {
+    let serverAddress = document.getElementById("serverAddress").value;
+    // You can save the server address somewhere or update the form's action attribute, etc.
+    alert("Configured to server: " + serverAddress);
 }
 
 function backward() {
     fetch('/backward').then(response => response.json()).then(data => {
-        updateImage(data.image_url);
+        document.getElementById("displayImage").src = data.image_url;
     });
 }
 
 function forward() {
     fetch('/forward').then(response => response.json()).then(data => {
-        updateImage(data.image_url);
+        document.getElementById("displayImage").src = data.image_url;
     });
 }
 </script>

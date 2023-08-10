@@ -3,7 +3,10 @@ import os
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = "/home/roar-nexus/Downloads"
+parent_folder = os.path.dirname(os.abspath(__file__))
+OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
+ANN_OUT = os.path.join("output", "annotations_output", "annotation.zip")
 IMAGES = ["image1.jpg", "image2.jpg", "image3.jpg"]
 queue = []
 current_image_index = 0
@@ -14,7 +17,19 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    #... [rest unchanged]
+    if 'file' not in request.files:
+        return 'No file part', 400
+    file = request.files['file']
+    if file.filename == '':
+        return 'No selected file', 400
+    if file:
+        filename = file.filename
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        if not os.path.exists(UPLOAD_FOLDER):
+            return 'Specified UPLOAD_FOLDER in server does not exist', 400
+        file.save(filepath)
+        return 'File uploaded successfully'
+
 
 @app.route('/uploads/<filename>')
 def serve_file(filename):
