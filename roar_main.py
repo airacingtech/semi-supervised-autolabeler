@@ -16,8 +16,9 @@ import gc
 from tqdm import tqdm
 from concurrent.futures.thread import ThreadPoolExecutor
 from roar_file_handler import RoarFileHandler
-# import threading
+import threading
 import time
+
 
 DOWNLOADS_PATH = "/home/roar-nexus/Downloads"
 class MainHub():
@@ -43,6 +44,7 @@ class MainHub():
         self.store = False
         #multithreading
         self.max_workers = MainHub.MAX_WORKERS
+        self.lock = threading.Lock()
     def setup(self):
         #TODO: add setup to modulate main tracking methods?
         return
@@ -119,8 +121,9 @@ class MainHub():
                     
                     pred_mask = roar_seg_tracker.create_origin_mask(key_frame_idx= curr_frame)
                     roar_seg_tracker.set_curr_key_frame(next_key_frame)
-                    self.track_key_frame_mask_objs[curr_frame] = \
-                        roar_seg_tracker.get_key_frame_to_masks()[curr_frame]
+                    with self.lock:
+                        self.track_key_frame_mask_objs[curr_frame] = \
+                            roar_seg_tracker.get_key_frame_to_masks()[curr_frame]
                         
                     #cuda
                     torch.cuda.empty_cache()
@@ -139,8 +142,9 @@ class MainHub():
                     pred_mask = roar_seg_tracker.track(frame, update_memory=True)
 
                     test_pred_mask = np.unique(pred_mask)
-                    self.track_key_frame_mask_objs[curr_frame] = \
-                        roar_seg_tracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
+                    with self.lock:
+                        self.track_key_frame_mask_objs[curr_frame] = \
+                            roar_seg_tracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
                 
                 #cuda
                 torch.cuda.empty_cache()
@@ -443,11 +447,14 @@ def main():
     ###Create User Files
     root = os.path.dirname(os.path.abspath(__file__))
     root = os.path.join(root, "roar_annotations")
-    
+    q = input("Would you like to reuse output annotation? (y/n): ")
+    reuse = (q == 'y' or q == 'Y')
     file_handler = RoarFileHandler(roar_path=root, downloads_path=DOWNLOADS_PATH)
-    if not resegment:
+    if not resegment and not reuse:
         file_handler.make_folder(job_id=job_id)
         file_handler.move_download_to_init_segment(job_id=job_id)
+    elif not resegment and reuse:
+        file_handler.make_folder(job_id=job_id)
     else:
         file_handler.make_folder(job_id=job_id)
         file_handler.move_download_to_resegment(job_id=job_id)
@@ -469,8 +476,7 @@ def main():
     if not os.path.exists(reseg_dir):
         os.makedirs(reseg_dir)
     reseg_path = os.path.join(reseg_dir, "annotations.xml")
-    q = input("Would you like to reuse output annotation? (y/n): ")
-    reuse = (q == 'y' or q == 'Y')
+    
     
     ###If want to reuse previous output annotation
     if reuse:
@@ -486,10 +492,11 @@ def main():
     #start tracking
     multithread_ans = input("Do you want to use multithreading? (y/n): ")
     multithread = (multithread_ans == 'y' or multithread_ans == 'Y')
-    check_worker_input = lambda x: (int(x) < main_hub.max_workers and int(x) > 0)
+    check_worker_input = lambda x: (int(x) <= main_hub.max_workers and int(x) > 0)
     convert_func = lambda x: int(x)
-    max_workers = rt.get_correct_input(check_worker_input, convert_func, "indicate max threads (int): ")
-    main_hub.max_workers = max_workers5
+    if multithread:
+        max_workers = rt.get_correct_input(check_worker_input, convert_func, "indicate max threads (int): ")
+        main_hub.max_workers = max_workers
     
     if resegment:
         resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)

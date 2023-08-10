@@ -2,6 +2,8 @@ from statistics import mode
 import torch
 import torch.nn.functional as F
 import os
+#ROAR added
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import sys
 sys.path.append("./aot")
 from aot.networks.engines.aot_engine import AOTEngine,AOTInferEngine

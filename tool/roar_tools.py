@@ -460,14 +460,14 @@ def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int
     tree.write(output_filename, encoding='utf-8', xml_declaration=True, short_empty_elements=False)
     zip_file_path = os.path.join(os.path.dirname(output_filename), "annotation.zip")
     with ZipFile(zip_file_path, 'w') as zip:
-        zip.write(output_filename)
+        zip.write(output_filename, arcname=os.path.basename(output_filename))
     return zip_file_path
 def get_correct_input(bool_func=lambda x: x, process_function= lambda x: x, question: str = "Question details"):
     repeat = True
     while repeat:
         answer = input(question)
         answer = process_function(answer)
-        check = input("is your input: {} correct? (y/n)".format(answer))
+        check = input("is your input: {} correct? (y/n) ".format(answer))
         repeat = ((check == 'y' or check == 'Y') and not bool_func(answer))
     return answer   
 if __name__ == '__main__':
