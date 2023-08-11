@@ -21,6 +21,21 @@ import time
 
 
 DOWNLOADS_PATH = "/home/roar-nexus/Downloads"
+sam_args['generator_args'] = {
+        'points_per_side': 30,
+        'pred_iou_thresh': 0.8,
+        'stability_score_thresh': 0.9,
+        'crop_n_layers': 1,
+        'crop_n_points_downscale_factor': 2,
+        'min_mask_region_area': 200,
+    }
+    
+segtracker_args = {
+'sam_gap': 7860, # the interval to run sam to segment new objects
+'min_area': 200, # minimal mask area to add a new mask as a new object
+'max_obj_num': 255, # maximal object number to track in a video
+'min_new_obj_iou': 0.8, # the area of a new object in the background should > 80% 
+}
 class MainHub():
     """
     Main hub class for RoarSegTracker
@@ -413,7 +428,134 @@ class MainHub():
     def tune(self):
         #TODO: add tuning on first frame with gui to adjust tuning values for tracking
         return
-     
+def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
+             reseg_bool: bool = False, reuse_output: bool = False, threads: int = 1, 
+             reseg_frames: list[int] = [], delete_zip: bool = False):
+    
+    sam_args['generator_args'] = {
+        'points_per_side': 30,
+        'pred_iou_thresh': 0.8,
+        'stability_score_thresh': 0.9,
+        'crop_n_layers': 1,
+        'crop_n_points_downscale_factor': 2,
+        'min_mask_region_area': 200,
+    }
+    
+    segtracker_args = {
+    'sam_gap': 7860, # the interval to run sam to segment new objects
+    'min_area': 200, # minimal mask area to add a new mask as a new object
+    'max_obj_num': 255, # maximal object number to track in a video
+    'min_new_obj_iou': 0.8, # the area of a new object in the background should > 80% 
+    }
+    
+
+    resegment = reseg_bool
+    
+    ###Create User Files
+    root = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.join(root, "roar_annotations")
+    
+    reuse = reuse_output
+    file_handler = RoarFileHandler(roar_path=root, downloads_path=DOWNLOADS_PATH)
+    if not resegment and not reuse:
+        file_handler.make_folder(job_id=job_id)
+        file_handler.move_download_to_init_segment(job_id=job_id)
+    elif not resegment and reuse:
+        file_handler.make_folder(job_id=job_id)
+    else:
+        file_handler.make_folder(job_id=job_id)
+        file_handler.move_download_to_resegment(job_id=job_id)
+    start_time = time.time()
+    # job_id = 262
+    
+    
+    main_path = os.path.join(root, str(job_id))
+    photo_dir = os.path.join(main_path, "images")
+    annotation_path = os.path.join(main_path, "annotations.xml")
+    key_frame_path = os.path.join(main_path, "key_frames_{}".format(job_id))
+    if not os.path.exists(annotation_path) or not os.path.exists(photo_dir):
+        return RuntimeError("annotations.xml or images directory not found")
+    output_dir = os.path.join(main_path, "output")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    reseg_dir = os.path.join(main_path, "resegment_annotations")
+    if not os.path.exists(reseg_dir):
+        os.makedirs(reseg_dir)
+    reseg_path = os.path.join(reseg_dir, "annotations.xml")
+    
+    
+    ###If want to reuse previous output annotation
+    if reuse:
+        annotations_output = os.path.join(output_dir, "annotations_output")
+        annotation_output_path = os.path.join(annotations_output, "annotations.xml")
+        reseg_path = annotation_output_path
+        
+    main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
+                       photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
+                       output_dir=output_dir)
+    start_time = time.time() 
+    reseg_idx = 1
+    #start tracking
+    main_hub.max_workers = threads
+    multithread = threads > 1
+    
+    if resegment:
+        resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)
+        repeat = True
+        new_frames = reseg_frames
+        
+        
+        
+            
+            
+        
+        
+        annotations_output = os.path.join(output_dir, "annotations_output")
+        annotation_output_path = os.path.join(annotations_output, "annotations.xml")
+        annotation_copy_path = os.path.join(annotations_output, "annotations_{}.xml".format(reseg_idx))
+        #save previous annotations output
+        if os.path.exists(annotation_output_path):
+            with open(annotation_output_path, 'r') as f:
+                with open(annotation_copy_path, 'w') as f2:
+                    f2.write(f.read())
+            reseg_idx += 1
+            
+        #Add new key frame to key frame arr for saving later
+        key_frame_arr = resegment_key_frames[:]
+        key_frame_arr.extend(new_frames)
+        key_frame_arr.sort()
+        
+        main_hub.resegment_track(past_key_frames=resegment_key_frames, new_frames=new_frames,
+                                 multithreading=multithread)
+        
+        
+                
+    else:
+        if not multithread:
+            main_hub.track()  
+        else:
+            main_hub.multi_trackers()
+        key_frame_arr = main_hub.roarsegtracker.get_key_frame_arr()
+        
+    mid_time = time.time()
+    print("storing data...")
+    #save annotations
+    # main_hub.store_tracker(frame="3093")
+    main_hub.store_key_frames(key_frames=key_frame_arr, 
+                              reseg_idx=reseg_idx, output_dir=key_frame_path)
+    main_hub.save_annotations()
+    end_time = time.time()
+    print("Finished Tracking in {} secs and finished writing annotations in {} secs".\
+        format(mid_time - start_time, end_time - mid_time))
+    if delete_zip:
+        file_handler.delete_zip(job_id=job_id)
+    del main_hub
+    torch.cuda.empty_cache()
+    gc.collect()
+    print("Done!") 
+    
+    
 def main():
     sam_args['generator_args'] = {
         'points_per_side': 30,

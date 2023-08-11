@@ -24,14 +24,41 @@
                 output += key + ": " + value + "<br>";
             }
             document.getElementById("output").innerHTML = output;
-            data.appendChild(document.createTextNode("Is this input correct?"))
+            let divChild = document.createElement("span")
+            divChild.appendChild(document.createTextNode("Is this input correct?"))
             let button = document.createElement("button")
             button.text = "yes";
+            button.textContent = "Yes";
             button.name = "verify_button";
-            data.appendChild(button)
-            data_json = getFormJSON(data);
-            button.onclick = insertData(data_json);
-            return false;  // prevent actual form submission for demonstration
+            button.id = "submit_form"
+                
+            let data_json = getFormJSON(data);
+            button.addEventListener("click", function(event) {
+                event.preventDefault(); 
+            
+                let jsonData = formToJSON(this); // Convert form data to JSON
+            
+                fetch(server_address, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: jsonData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    // Handle response here
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Handle errors here
+                });
+            });
+            divChild.append(document.createElement("br"))
+            divChild.appendChild(button)
+            data.appendChild(divChild)
+            <!-- return false;  // prevent actual form submission for demonstration -->
         }
     </script>
 </head>
@@ -51,30 +78,37 @@
 <br><br>
 
 <h3>Job Configuration</h3>
-<form id="userForm" onsubmit="return onSubmit()" action="/submit_form" method="post">
-    Threads: <input type="number" name="threads"><br><br>
+<form id="userForm" onsubmit="return onSubmit()" action="/roar_webpage.html" method="POST", enctype="multipart/form-data">
+    Threads: <input id="threads" type="number" name="threads"><br><br>
     Job: 
     <select name="jobType" id="segmentationDropdown" onchange="updateForm()">
         <option value="initial segmentation">Initial Segmentation</option>
         <option value="resegmentation">Resegmentation</option>
     </select><br><br>
-    Job ID: <input type="number" name="jobId"><br><br>
-    Reuse Annotation Output: <input type="checkbox" name="reuseAnnotation"><br><br>
+    Job ID: <input id="job_id" yype="number" name="jobId"><br><br>
+    Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox" name="reuseAnnotation"><br><br>
+    Delete job zip on server: <input id="delete_zip" type="checkbox" name="delete_zip"><br><br>
     <div id="framesDiv" style="display:none;">
-        List of Frame Numbers (comma-separated): <input type="text" name="frames"><br><br>
+        List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text" name="frames"><br><br>
     </div>
-    <input type="submit" value="Submit">
+    
+    Upload your job.zip: <input type="file" name="jobFile" id="jobFile" accept=".zip"><br><br>
+    <button type="button" id="submit_user_form" className=""front onClick="onSubmit()">
+        submit++
+    </button>
 </form>
 
 <h3>Form Data Output</h3>
 <div id="output"></div>
 
 <script>
-    var server_address = ""
+    var server_address = "localhost:5000"
 function configureServer() {
     let serverAddress = document.getElementById("serverAddress").value;
+    let formData = document.getElementById("userForm")
     // You can save the server address somewhere or update the form's action attribute, etc.
     server_address = serverAddress
+    formData.action= serverAddress
     alert("Configured to server: " + serverAddress);
 }
 function submitForm(){
@@ -86,9 +120,21 @@ function submitForm(){
 
     
 }
+const getFormJSON = (form) => {
+    const data = new FormData(form);
+    return Array.from(data.keys()).reduce((result, key) => {
+      if (result[key]) {
+        result[key] = data.getAll(key)
+        return result
+      }
+      result[key] = data.get(key);
+      return result;
+    }, {});
+  };
 
 /** Sends data to flask app. */
 const insertData = (newData) => {
+    console.log("insert data called \n")
     fetch(server_address, { 
         method: "POST",
         headers: {
@@ -117,4 +163,5 @@ function forward() {
 </script>
 
 </body>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 </html>
