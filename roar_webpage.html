@@ -18,11 +18,19 @@
 
         function onSubmit() {
             let formData = new FormData(document.getElementById('userForm'));
+            var data = document.getElementById('userForm')
             let output = "";
             for (let [key, value] of formData.entries()) {
                 output += key + ": " + value + "<br>";
             }
             document.getElementById("output").innerHTML = output;
+            data.appendChild(document.createTextNode("Is this input correct?"))
+            let button = document.createElement("button")
+            button.text = "yes";
+            button.name = "verify_button";
+            data.appendChild(button)
+            data_json = getFormJSON(data);
+            button.onclick = insertData(data_json);
             return false;  // prevent actual form submission for demonstration
         }
     </script>
@@ -62,12 +70,39 @@
 <div id="output"></div>
 
 <script>
+    var server_address = ""
 function configureServer() {
     let serverAddress = document.getElementById("serverAddress").value;
     // You can save the server address somewhere or update the form's action attribute, etc.
+    server_address = serverAddress
     alert("Configured to server: " + serverAddress);
 }
+function submitForm(){
+            
+    var data = document.getElementById("add_website_form");
+    data_json = getFormJSON(data);
+    insertData(data_json);
+    
 
+    
+}
+
+/** Sends data to flask app. */
+const insertData = (newData) => {
+    fetch(server_address, { 
+        method: "POST",
+        headers: {
+            'Content-Type':'application/json'
+        },
+        body: JSON.stringify(newData)
+    })
+    .then(resp => resp.json())
+    .then((data) => {
+        success(data); // display response json from flask to webpage
+        console.log(data)
+    })
+    .catch(error => console.log(error))
+}
 function backward() {
     fetch('/backward').then(response => response.json()).then(data => {
         document.getElementById("displayImage").src = data.image_url;
