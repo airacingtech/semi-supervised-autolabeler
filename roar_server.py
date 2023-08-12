@@ -1,50 +1,62 @@
 from flask import Flask, request, render_template, send_from_directory, jsonify
+from flask_cors import CORS
 import os
 from roar_main import arg_main
 import re
 
-app = Flask(__name__)
-
+app = Flask(__name__, static_folder='../client/build/',    static_url_path='/')
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 UPLOAD_FOLDER = "/home/roar-nexus/Downloads"
-parent_folder = os.path.dirname(os.abspath(__file__))
+parent_folder = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
-ANN_OUT = os.path.join("output", "annotations_output", "annotation.zip")
+ANN_OUT = os.path.join("output", "annotations_output")
 IMAGES = ["image1.jpg", "image2.jpg", "image3.jpg"]
 QUEUE = []
 current_image_index = 0
 
 @app.route('/')
 def index():
-    return render_template('index.html', image_url=f'/uploads/{IMAGES[current_image_index]}')
+    return render_template('roar_webpage.html', image_url=f'/uploads/{IMAGES[current_image_index]}')
 
 @app.route('/upload', methods=['POST', 'GET'])
 def upload_file():
     try:
-        if 'file' not in request.files:
+        if request.method == 'GET':
+            return "Nice try uploading..."
+        r = request.get_json(force=True)
+        job_id = int(r['jobId'])
+        threads = int(r['threads'])
+        reseg_bool = not (r['jobType'] == "initial segmentation")
+        on_pattern = r'([O|o][n|N])'
+        reuse_annotation_output = bool(re.match(on_pattern, r['reuseAnnotation']))
+        delete_zip = bool(re.match(on_pattern, r['delete_zip']))
+        frames = []
+        
+        if reseg_bool:
+            frames = r['frames'].split(",")
+                
+        if 'file' not in request.files and not reuse_annotation_output:
             return 'No file part', 400
-        file = request.files['file']
-        if file.filename == '':
-            return 'No selected file', 400
-        if file:
-            r = request.get_json(force=True)
-            job_id = int(r['jobId'])
-            threads = int(r['threads'])
-            reseg_bool = not (r['jobType'] == "initial segmentation")
-            on_pattern = r'([O|o][n|N])'
-            reuse_annotation_output = bool(re.match(on_pattern, r['reuseAnnotation']))
-            delete_zip = bool(re.match(on_pattern, r['delete_zip']))
-            frames = []
-            if reseg_bool:
-                frames = r['frames'].split(",")
+        elif 'file' in request.files:
+            file = request.files['file']
             
-            filename = file.filename
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            if not os.path.exists(UPLOAD_FOLDER):
-                return 'Specified UPLOAD_FOLDER in server does not exist', 400
-            file.save(filepath)
+            if file.filename == '' and not reuse_annotation_output:
+                return 'No selected file', 400
+            if file:
+                
+                
+                filename = str(file.filename)
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
+                if not os.path.exists(UPLOAD_FOLDER):
+                    return 'Specified UPLOAD_FOLDER in server does not exist', 400
+                file.save(filepath)
             
-            arg_main(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output,
-                    threads=threads, reseg_frames=frames, delete_zip=delete_zip)
+        arg_main(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output,
+                threads=threads, reseg_frames=frames, delete_zip=delete_zip)
+        job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
+        annotation_output = os.path.join(job_folder, ANN_OUT)
+        return send_from_directory(annotation_output, "annotation.zip", as_attachment=True)
     except Exception as e:
         print(f"Error while uploading with error: {e}")
         # return 'File uploaded successfully'
