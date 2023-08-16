@@ -8,6 +8,7 @@ app = Flask(__name__, static_folder='../client/build/',    static_url_path='/')
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 UPLOAD_FOLDER = "/home/roar-nexus/Downloads"
+UPLOAD_FOLDER = "C:/Users/chowm/Downloads"
 parent_folder = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
 ANN_OUT = os.path.join("output", "annotations_output")
@@ -28,9 +29,9 @@ def upload_file():
         job_id = int(r['jobId'])
         threads = int(r['threads'])
         reseg_bool = not (r['jobType'] == "initial segmentation")
-        on_pattern = r'([O|o][n|N])'
-        reuse_annotation_output = bool(re.match(on_pattern, r['reuseAnnotation']))
-        delete_zip = bool(re.match(on_pattern, r['delete_zip']))
+        # on_pattern = r'([O|o][n|N])'
+        reuse_annotation_output = bool(r.get('reuseAnnotation'))
+        delete_zip = bool(r.get('delete_zip'))
         frames = []
         
         if reseg_bool:
@@ -58,7 +59,7 @@ def upload_file():
         annotation_output = os.path.join(job_folder, ANN_OUT)
         return send_from_directory(annotation_output, "annotation.zip", as_attachment=True)
     except Exception as e:
-        print(f"Error while uploading with error: {e}")
+        return f"Error while uploading with error: {e}", 400
         # return 'File uploaded successfully'
         
         
