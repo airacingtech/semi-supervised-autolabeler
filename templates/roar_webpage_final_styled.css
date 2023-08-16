@@ -1,0 +1,110 @@
+
+/* Resetting some default styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #F0E4D7; /* Pastel cream background */
+    background-image: linear-gradient(to bottom, #FFD1DC, transparent); /* Faded pastel pink at the top */
+    color: #4C4C4C;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow-x: hidden; /* to avoid horizontal scroll */
+    position: relative; /* required for the parallax effect */
+}
+
+/* Parallax background effect */
+body::before {
+    content: "";
+    background: linear-gradient(#F0E4D7, #FFEBA1); /* Gradient from cream to yellow */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    transform: translateY(0);
+    will-change: transform; /* optimization for smoother animations */
+    transition: transform 0.5s;
+}
+
+/* Styling the header */
+header {
+    background-color: #FFEBA1; /* Pastel yellow */
+    padding: 1em 0;
+    text-align: center;
+    border-radius: 10px;
+    margin-bottom: 2em;
+}
+
+header h1 {
+    font-size: 2em;
+    margin-bottom: 0.5em;
+}
+
+/* Main content styling */
+main {
+    width: 70%;
+    border-radius: 15px;
+    background-color: #FFF3E9; /* Pastel orange */
+    padding: 2em;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1); /* subtle shadow for depth */
+}
+
+/* Styling the form elements */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+
+form label, form select, form input {
+    padding: 0.5em;
+    border: 1px solid #E0D5C1;
+    border-radius: 20px;
+    outline: none;
+}
+
+form button {
+    padding: 1em;
+    border: none;
+    background-color: #AEC5EB; /* Pastel blue */
+    color: #FFFFFF;
+    font-weight: bold;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+form button:hover {
+    background-color: #8AAFD5;
+}
+
+/* Placeholder for anime images */
+.anime-girl {
+    width: 100%;
+    max-width: 200px;
+    display: block;
+    margin: 1em auto;
+    border-radius: 50%;
+}
+
+/* Styling the output */
+#output {
+    background-color: #E7F0C3; /* Pastel green */
+    padding: 1em;
+    border-radius: 20px;
+    margin-top: 2em;
+}
+
+/* Including some global rounded styles */
+a, button, input, select, textarea {
+    border-radius: 10px;
+}

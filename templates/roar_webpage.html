@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <title>Form Submission and Image Viewer</title>
     <script>
         function updateForm() {
@@ -77,8 +78,9 @@
     </script>
 </head>
 <body>
-
-<h3>Server Configuration</h3>
+    <h3 style="display:none;"> Not seen </h3
+<br><br><br><br><br><br><br><br><br><br><br><br>
+<h3 id="server_conf">Server Configuration</h3>
 <form>
     <input type="text" id="serverAddress" placeholder="Enter Server Address">
     <button type="button" onclick="configureServer()">Configure</button>
@@ -178,8 +180,15 @@ function forward() {
         document.getElementById("displayImage").src = data.image_url;
     });
 }
+document.addEventListener('scroll', function() {
+    const maxScroll = document.body.scrollHeight - window.innerHeight;
+    const percentScrolled = window.scrollY / maxScroll;
+    const translateYValue = -(percentScrolled * 100); // inverts the scroll direction for parallax effect
+    document.body.style.setProperty('--translateY', `${translateYValue}%`);
+});
 </script>
 
 </body>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<link rel="stylesheet" href="roar_webpage_centered_styled.css">
 </html>
