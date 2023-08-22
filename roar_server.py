@@ -4,11 +4,11 @@ import os
 from roar_main import arg_main
 import re
 
-app = Flask(__name__, static_folder='../client/build/',    static_url_path='/')
+app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 UPLOAD_FOLDER = "/home/roar-nexus/Downloads"
-UPLOAD_FOLDER = "C:/Users/chowm/Downloads"
+# UPLOAD_FOLDER = "C:/Users/chowm/Downloads"
 parent_folder = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
 ANN_OUT = os.path.join("output", "annotations_output")
@@ -37,12 +37,12 @@ def upload_file():
         if reseg_bool:
             frames = r['frames'].split(",")
                 
-        if 'file' not in request.files and not reuse_annotation_output:
+        if 'file' not in request.files and reuse_annotation_output:
             return 'No file part', 400
         elif 'file' in request.files:
             file = request.files['file']
             
-            if file.filename == '' and not reuse_annotation_output:
+            if file.filename == '' and reuse_annotation_output:
                 return 'No selected file', 400
             if file:
                 
