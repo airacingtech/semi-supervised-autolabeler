@@ -107,12 +107,16 @@ class MainHub():
         with open(file_path, 'rb') as outfile:
             tracker_serial_data = outfile.read()
         self.roarsegtracker = RoarSegTracker.load_data(tracker_serial_data)
+    def track_one_frame(self, roar_seg_tracker, curr_frame: int = -1, end_frame_idx: int = -1):
+        #TODO add frame iteration
+        return
     def track_set_frames(self, roar_seg_tracker, key_frames: list[int] = [], end_frame_idx: int = 0):
         """Given end frame index, as well as a list of 
         key frames, track only the portion starting from first key frame idx to end_frame_index.
         Destructive method so copy key frame list if needed.
 
         Args:
+            roar_seg_tracker: RoarSegTracker w/ custom presets for given frame iteration
             key_frames :List of key frames in sorted increasing order(manually annotated). Defaults to 0.
             end_frame_idx (int, optional): ending frame index; must be equal to or greater than 
             greatest key frame index value. Defaults to 0.

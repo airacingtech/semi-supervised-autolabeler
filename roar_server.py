@@ -37,12 +37,12 @@ def upload_file():
         if reseg_bool:
             frames = r['frames'].split(",")
                 
-        if 'file' not in request.files and reuse_annotation_output:
+        if 'file' not in request.files and not reuse_annotation_output and reseg_bool:
             return 'No file part', 400
-        elif 'file' in request.files:
+        if 'file' in request.files:
             file = request.files['file']
             
-            if file.filename == '' and reuse_annotation_output:
+            if file.filename == '' and not reuse_annotation_output:
                 return 'No selected file', 400
             if file:
                 

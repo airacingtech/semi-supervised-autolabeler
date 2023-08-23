@@ -26,6 +26,7 @@
             }
             document.getElementById("output").innerHTML = output;
             let divChild = document.createElement("span")
+            divChild.id = "send_button";
             divChild.appendChild(document.createTextNode("Is this input correct?"))
             let button = document.createElement("button")
             button.text = "yes";
@@ -36,7 +37,10 @@
             let data_json = getFormJSON(data);
             button.addEventListener("click", function(event) {
                 event.preventDefault(); 
-            
+                let divChild = document.getElementById("send_button");
+                divChild.append(document.createElement("br"));
+                divChild.appendChild(document.createTextNode("Job Sent! Wait for Download Link..."));
+                
                 let jsonData = getFormJSON(document.getElementById("userForm")); // Convert form data to JSON
             
                 fetch(server_address, {
@@ -124,9 +128,17 @@
 <script>
     var server_address = "http://127.0.0.1:5000/upload"
 function configureServer() {
-    let serverAddress = document.getElementById("serverAddress").value;
+    let serverAddress = new String(document.getElementById("serverAddress").value);
     let formData = document.getElementById("userForm")
     // You can save the server address somewhere or update the form's action attribute, etc.
+    if (!serverAddress.includes("/upload")) {
+        if (serverAddress[serverAddress.length - 1] == '/') {
+            serverAddress = serverAddress + "upload";
+        } else {
+            serverAddress = serverAddress + "/upload";
+        }
+        
+    }
     server_address = serverAddress
     formData.action= serverAddress
     alert("Configured to server: " + serverAddress);
