@@ -91,7 +91,8 @@
 </form>
 
 <h3>Image Display & Controls</h3>
-<img id="displayImage" src="{{ image_url }}" width="320" alt="Image Viewer">
+<img id="displayImage1" src="{{ image_url }}" width="320" alt="Image Viewer">
+<img id="displayImage2" src="{{ image_url }}" width="320" alt="Image Viewer">
 <br>
 <button onclick="backward()">Backward</button>
 <button onclick="forward()">Forward</button>
@@ -127,20 +128,23 @@
 
 <script>
     var server_address = "http://127.0.0.1:5000/upload"
+    var server_main = "http://127.0.0.1:5000"
 function configureServer() {
     let serverAddress = new String(document.getElementById("serverAddress").value);
     let formData = document.getElementById("userForm")
     // You can save the server address somewhere or update the form's action attribute, etc.
     if (!serverAddress.includes("/upload")) {
         if (serverAddress[serverAddress.length - 1] == '/') {
+            server_main = serverAddress.slice(0, serverAddress.length - 1);
             serverAddress = serverAddress + "upload";
         } else {
+            server_main = serverAddress;
             serverAddress = serverAddress + "/upload";
         }
         
     }
-    server_address = serverAddress
-    formData.action= serverAddress
+    server_address = serverAddress;
+    formData.action= serverAddress;
     alert("Configured to server: " + serverAddress);
 }
 function submitForm(){
@@ -182,14 +186,15 @@ const insertData = (newData) => {
     .catch(error => console.log(error))
 }
 function backward() {
-    fetch('/backward').then(response => response.json()).then(data => {
+    fetch(server_main + '/backward').then(response => response.json()).then(data => {
         document.getElementById("displayImage").src = data.image_url;
     });
 }
 
 function forward() {
-    fetch('/forward').then(response => response.json()).then(data => {
-        document.getElementById("displayImage").src = data.image_url;
+    fetch(server_main + '/forward').then(response => response.json()).then(data => {
+        document.getElementById("displayImage1").src = data.image_url1;
+        document.getElementById("displayImage2").src = data.image_url2;
     });
 }
 document.addEventListener('scroll', function() {

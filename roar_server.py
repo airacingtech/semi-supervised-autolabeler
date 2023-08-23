@@ -73,13 +73,13 @@ def serve_file(filename):
 def forward_image():
     global current_image_index
     current_image_index = (current_image_index + 1) % len(IMAGES)
-    return jsonify({"image_url": f'/uploads/{IMAGES[current_image_index]}'})
+    return jsonify({"image_url1": f'/uploads/{IMAGES[current_image_index]}'})
 
 @app.route('/backward', methods=['GET'])
 def backward_image():
     global current_image_index
     current_image_index = (current_image_index - 1) % len(IMAGES)
-    return jsonify({"image_url": f'/uploads/{IMAGES[current_image_index]}'})
+    return jsonify({"image_url1": f'/uploads/{IMAGES[current_image_index]}'})
 
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):

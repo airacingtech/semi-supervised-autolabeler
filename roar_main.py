@@ -51,6 +51,7 @@ class MainHub():
         self.photo_dir = photo_dir
         self.annotation_dir = annotation_dir
         self.output_dir = output_dir
+        #key frame to dictionary of obj id to obj
         self.track_key_frame_mask_objs: dict[int: dict[int, rt.MaskObject]] = {}
         self.roarsegtracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
         self.roarsegtracker.restart_tracker()
@@ -107,8 +108,24 @@ class MainHub():
         with open(file_path, 'rb') as outfile:
             tracker_serial_data = outfile.read()
         self.roarsegtracker = RoarSegTracker.load_data(tracker_serial_data)
-    def track_one_frame(self, roar_seg_tracker, curr_frame: int = -1, end_frame_idx: int = -1):
+    def get_frame(self, roar_seg_tracker, curr_frame: int = -1, end_frame_idx: int = -1, start_frame_idx: int = -1):
+        """given desired frame, return image at desired frame with generated masks
+
+        Args:
+            roar_seg_tracker (_type_): RoarSegTracker obj to use
+            curr_frame (int, optional): int value of desired frame. Defaults to -1.
+            end_frame_idx (int, optional): edge case for when to stop looking for frames. Defaults to -1.
+            start_frame_idx (int): edge case for when to start looking for frames. Defaults to -1
+        """
         #TODO add frame iteration
+        #see if frame is already made or exists
+        if self.track_key_frame_mask_objs.get(curr_frame) is None:
+            #set everything up given last generated frame
+            #while the desired frame still none, generate frames
+            pass
+        #return list of two images one
+
+            
         return
     def track_set_frames(self, roar_seg_tracker, key_frames: list[int] = [], end_frame_idx: int = 0):
         """Given end frame index, as well as a list of 
@@ -354,9 +371,9 @@ class MainHub():
         frames = list(range(curr_frame, end_frame+1))
         with torch.cuda.amp.autocast():
             for curr_frame in tqdm(frames, "Processing frames... "):
-                if curr_frame % 2187 == 0:
+                # if curr_frame % 2187 == 0:
                     
-                    print("day of reckoning")
+                #     print("day of reckoning")
                 frame = rt.get_image(self.photo_dir, curr_frame)
                 if curr_frame == next_key_frame:
                     #segment
@@ -400,8 +417,8 @@ class MainHub():
                     test_pred_mask = np.unique(pred_mask)
                     self.track_key_frame_mask_objs[curr_frame] = \
                         self.roarsegtracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
-                    if curr_frame == 88:
-                        print('88')
+                    # if curr_frame == 88:
+                    #     print('88')
                 if self.store:
                     self.store_tracker(frame=str(curr_frame))
                 #cuda
