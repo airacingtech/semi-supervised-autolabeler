@@ -11,6 +11,8 @@ from PIL import Image
 import re
 from zipfile import ZipFile
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from aot_tracker import _palette
+from scipy.ndimage import binary_dilation
 # from RoarSegTracker import RoarSegTracker
 # from RoarSegTracker import RoarSegTracker
 
@@ -122,7 +124,105 @@ def get_image(photo_dir="", frame_num=0) -> np.array:
             im_frame = Image.open(path_to_file)
             np_frame = np.array(im_frame)
             return np_frame
+def save_prediction(pred_mask,output_dir,file_name):
+    save_mask = Image.fromarray(pred_mask.astype(np.uint8))
+    save_mask = save_mask.convert(mode='P')
+    save_mask.putpalette(_palette)
+    save_mask.save(os.path.join(output_dir,file_name))
+# def colorize_mask(pred_mask, color=_palette):
+#     save_mask = Image.fromarray(pred_mask.astype(np.uint8))
+#     save_mask = save_mask.convert(mode='P')
+#     save_mask.putpalette(color)
+#     save_mask = save_mask.convert(mode='RGB')
+#     return np.array(save_mask)
+from PIL import Image
+import numpy as np
 
+def colorize_mask(pred_mask, color=(255, 0, 0)):
+    """
+    Colorizes a mask using a single RGB color.
+    
+    Args:
+    - pred_mask: 2D numpy array representing the mask.
+    - color: RGB color to be used for colorizing the mask.
+    
+    Returns:
+    - A colorized version of the mask as a numpy array.
+    """
+    
+    # Create an empty RGB image with the same dimensions as the mask.
+    rgb_image = np.zeros((pred_mask.shape[0], pred_mask.shape[1], 3), dtype=np.uint8)
+    
+    # Set the color for the mask pixels.
+    rgb_image[pred_mask > 0] = color
+        
+    return rgb_image
+
+def draw_mask(img, mask, alpha=0.5, id_countour=False, label_to_color: dict = {}):
+    img_mask = np.zeros_like(img)
+    img_mask = img
+    if id_countour:
+        # very slow ~ 1s per image
+        obj_ids = np.unique(mask)
+        obj_ids = obj_ids[obj_ids!=0]
+
+        for id in obj_ids:
+            # Overlay color on  binary mask
+            if id <= 255:
+                color = _palette[id*3:id*3+3]
+            else:
+                color = [0,0,0]
+            foreground = img * (1-alpha) + np.ones_like(img) * alpha * np.array(color)
+            binary_mask = (mask == id)
+
+            # Compose image
+            img_mask[binary_mask] = foreground[binary_mask]
+
+            countours = binary_dilation(binary_mask,iterations=1) ^ binary_mask
+            img_mask[countours, :] = 0
+    else:
+        binary_mask = (mask!=0)
+        countours = binary_dilation(binary_mask,iterations=1) ^ binary_mask
+        foreground = img*(1-alpha)+colorize_mask(mask)*alpha
+        img_mask[binary_mask] = foreground[binary_mask]
+        img_mask[countours,:] = 0
+        
+    return img_mask.astype(img.dtype)
+
+def make_img_with_masks(id_to_mask_objs: dict = {}, 
+                        img: np.array = np.eye(1), id_countour = False, alpha=0.5):
+    """Create a RGB Image array with mask objects displayed; with or without contour
+
+    Args:
+        id_to_mask_objs (dict, optional): Dictionary of mask object id to mask object. Defaults to {}.
+        img (np.array, optional): 3 dimensional matrix for RGB values. Defaults to np.eye(1).
+        id_countour (bool, optional): Option to give each mask their designated color of no contour. Defaults to False.
+        alpha (float, optional): hyperparameter for alpha channel of image. Defaults to 0.5.
+
+    Returns:
+        img_mask: 3 dimensional matrix for RGB values with mask overlay
+    """
+    img_mask = np.zeros_like(img)
+    img_mask = np.copy(img)
+    for id, mask_obj in id_to_mask_objs.items():
+        color = hex_to_rgb(mask_obj.get_color())
+        foreground = img * (1-alpha) + np.ones_like(img) * alpha * np.array(color)
+        mask_array = mask_obj.get_mask_array()
+        if id_countour:
+            
+            #TODO: make binary mask filter to combine img mask with foreground mask?
+            binary_mask = (mask_array == id)
+            img_mask[binary_mask] = foreground[binary_mask]
+            countours = binary_dilation(binary_mask,iterations=1) ^ binary_mask
+            img_mask[countours, :] = 0
+        else:
+            binary_mask = (mask_array != 0)
+            countours = binary_dilation(binary_mask,iterations=1) ^ binary_mask
+            foreground = img*(1-alpha)+colorize_mask(mask_array, color=color)*alpha
+            img_mask[binary_mask] = foreground[binary_mask]
+            img_mask[countours,:] = 0
+        
+    return img_mask.astype(img.dtype)
 
 def hex_to_rgb(hex_color_str):
     """Takes a hexadecimal color string and converts it to RGB.

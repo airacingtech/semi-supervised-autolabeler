@@ -41,7 +41,7 @@ class RoarSegTracker(SegTracker):
     
     def set_curr_key_frame(self, curr_key_frame_idx: int):
         self.curr_key_frame_idx = curr_key_frame_idx
-    def get_curr_key_frame(self):
+    def get_curr_key_frame(self) -> int:
         return self.curr_key_frame_idx
     def set_key_frame_to_masks(self, key_frame_to_masks):
         self.key_frame_to_masks = key_frame_to_masks

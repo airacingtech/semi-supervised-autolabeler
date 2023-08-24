@@ -1,3 +1,4 @@
+from matplotlib.sankey import DOWN
 import tool.roar_tools as rt
 from RoarSegTracker import RoarSegTracker
 import json
@@ -21,6 +22,7 @@ import time
 
 
 DOWNLOADS_PATH = "/home/roar-nexus/Downloads"
+# DOWNLOADS_PATH = "C:/Users/chowm/Downloads"
 sam_args['generator_args'] = {
         'points_per_side': 30,
         'pred_iou_thresh': 0.8,
@@ -61,6 +63,8 @@ class MainHub():
         #multithreading
         self.max_workers = MainHub.MAX_WORKERS
         self.lock = threading.Lock()
+        #options
+        self.id_countour = False #countour masks for img w/ mask overlay feature
     def setup(self):
         #TODO: add setup to modulate main tracking methods?
         return
@@ -76,7 +80,7 @@ class MainHub():
         
         if annontation_dir != "":
             self.annotation_dir = annontation_dir
-        self.roarsegtracker.start_seg_tracker_for_cvat(annotation_dir=annontation_dir)
+        self.roarsegtracker.start_seg_tracker_for_cvat(annotation_dir=self.annotation_dir)
         
     def store_key_frames(self, key_frames: list[int] = [], reseg_idx: int = 0, 
                          output_dir: str = ""):
@@ -108,25 +112,63 @@ class MainHub():
         with open(file_path, 'rb') as outfile:
             tracker_serial_data = outfile.read()
         self.roarsegtracker = RoarSegTracker.load_data(tracker_serial_data)
-    def get_frame(self, roar_seg_tracker, curr_frame: int = -1, end_frame_idx: int = -1, start_frame_idx: int = -1):
+        
+        
+    def get_frame(self, frame: int = -1, end_frame_idx: int = -1, start_frame_idx: int = -1):
         """given desired frame, return image at desired frame with generated masks
 
         Args:
-            roar_seg_tracker (_type_): RoarSegTracker obj to use
-            curr_frame (int, optional): int value of desired frame. Defaults to -1.
+            frame (int, optional): int value of desired frame. Defaults to -1.
             end_frame_idx (int, optional): edge case for when to stop looking for frames. Defaults to -1.
             start_frame_idx (int): edge case for when to start looking for frames. Defaults to -1
+        Returns:
+            [img, img_mask]: list of 3 dimensional img for given frame as well as the image with mask overlay
         """
-        #TODO add frame iteration
+        img_dim = self.roarsegtracker.get_img_dim()
+        if start_frame_idx > frame or frame > end_frame_idx:
+            
+            img = np.array([np.zeros(img_dim) for i in range(3)])
+            return img, img
+        img = rt.get_image(self.photo_dir, frame)
         #see if frame is already made or exists
-        if self.track_key_frame_mask_objs.get(curr_frame) is None:
+        tWalker: int = self.roarsegtracker.get_curr_key_frame()
+        min_dist = float('inf') if frame - tWalker < 0 else frame - tWalker
+        
+        
+        if self.track_key_frame_mask_objs.get(frame) is None:
+            #find closest frame to desired frame
+            if frame - 1 != tWalker:
+                for k, v in self.track_key_frame_mask_objs.items():
+                    dist = frame - k
+                    if dist < min_dist and dist >= 0:
+                        min_dist = dist 
+                        tWalker = k
+            #set key frame
+            roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
+            key_frame = tWalker
+            key_frame_arr = [key_frame]
+            label_to_color = self.roarsegtracker.get_label_to_color()
+            roartracker.restart_tracker()
+            roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: self.track_key_frame_mask_objs[key_frame]},  
+                                                start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
+                                                img_dim=img_dim, label_to_color=label_to_color, 
+                                                key_frame_arr=key_frame_arr)
+            self.track_set_frames(roar_seg_tracker=roartracker, key_frames=key_frame_arr, end_frame_idx=frame)
+                
+        self.roarsegtracker.set_curr_key_frame(frame)
+        img_mask = rt.make_img_with_masks(id_to_mask_objs=self.track_key_frame_mask_objs[frame], img=img, id_countour=self.id_countour)
+        
+         
             #set everything up given last generated frame
+            
             #while the desired frame still none, generate frames
-            pass
+            
         #return list of two images one
 
             
-        return
+        return img, img_mask
+    
+    
     def track_set_frames(self, roar_seg_tracker, key_frames: list[int] = [], end_frame_idx: int = 0):
         """Given end frame index, as well as a list of 
         key frames, track only the portion starting from first key frame idx to end_frame_index.
@@ -449,6 +491,67 @@ class MainHub():
     def tune(self):
         #TODO: add tuning on first frame with gui to adjust tuning values for tracking
         return
+def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
+             reseg_bool: bool = False, reuse_output: bool = False) -> MainHub:
+    """Creates MainHub Object
+
+    Args:
+        sam_args (_type_, optional): segment anything model args. Defaults to sam_args.
+        segtracker_args (_type_, optional): segmentation tracker args. Defaults to segtracker_args.
+        aot_args (_type_, optional): tracker engine args. Defaults to aot_args.
+        job_id (int, optional): job id according to CVAT. Defaults to -1.
+        reseg_bool (bool, optional): define if tracking job is a resegmentation(previously tracked). Defaults to False.
+        reuse_output (bool, optional): option to reuse annotation.xml output of previous tracking job. Defaults to False.
+
+    Returns:
+        _type_: MainHub Object
+    """
+    resegment = reseg_bool
+    
+    ###Create User Files
+    root = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.join(root, "roar_annotations")
+    
+    reuse = reuse_output
+    file_handler = RoarFileHandler(roar_path=root, downloads_path=DOWNLOADS_PATH)
+    if not resegment and not reuse:
+        file_handler.make_folder(job_id=job_id)
+        file_handler.move_download_to_init_segment(job_id=job_id)
+    elif (not resegment and reuse):
+        file_handler.make_folder(job_id=job_id)
+    elif (resegment and not reuse):
+        file_handler.make_folder(job_id=job_id)
+        file_handler.move_download_to_resegment(job_id=job_id)
+    # job_id = 262
+    
+    
+    main_path = os.path.join(root, str(job_id))
+    photo_dir = os.path.join(main_path, "images")
+    annotation_path = os.path.join(main_path, "annotations.xml")
+    key_frame_path = os.path.join(main_path, "key_frames_{}".format(job_id))
+    if not os.path.exists(annotation_path) or not os.path.exists(photo_dir):
+        raise RuntimeError("annotations.xml or images directory not found")
+    output_dir = os.path.join(main_path, "output")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    reseg_dir = os.path.join(main_path, "resegment_annotations")
+    if not os.path.exists(reseg_dir):
+        os.makedirs(reseg_dir)
+    reseg_path = os.path.join(reseg_dir, "annotations.xml")
+    
+    
+    ###If want to reuse previous output annotation
+    if reuse:
+        annotations_output = os.path.join(output_dir, "annotations_output")
+        annotation_output_path = os.path.join(annotations_output, "annotations.xml")
+        reseg_path = annotation_output_path
+        
+    main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
+                       photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
+                       output_dir=output_dir)
+    return main_hub
+    
 def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
              reseg_bool: bool = False, reuse_output: bool = False, threads: int = 1, 
              reseg_frames: list[int] = [], delete_zip: bool = False):

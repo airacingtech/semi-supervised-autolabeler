@@ -6,6 +6,7 @@
     
     <title>Form Submission and Image Viewer</title>
     <script>
+        var config = null;
         function updateForm() {
             let dropdown = document.getElementById("segmentationDropdown");
             let value = dropdown.options[dropdown.selectedIndex].value;
@@ -15,6 +16,11 @@
             } else {
                 framesDiv.style.display = "none";
             }
+        }
+        function saveConfig() {
+            var data = document.getElementById('userForm');
+            let data_json = getFormJSON(data);
+            config = data_json;
         }
 
         function onSubmit() {
@@ -114,6 +120,7 @@
     </div>
     
     Upload your job.zip: <input type="file" name="jobFile" id="jobFile" accept=".zip"><br><br>
+    <button type="button" id="save_config" className=""front onClick="saveConfig()">
     <button type="button" id="submit_user_form" className=""front onClick="onSubmit()">
         submit++
     </button>
@@ -129,6 +136,7 @@
 <script>
     var server_address = "http://127.0.0.1:5000/upload"
     var server_main = "http://127.0.0.1:5000"
+    var frame = 0;
 function configureServer() {
     let serverAddress = new String(document.getElementById("serverAddress").value);
     let formData = document.getElementById("userForm")
