@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Form Submission and Image Viewer</title>
+    <script>
+        var config = null;
+        function updateForm() {
+            let dropdown = document.getElementById("segmentationDropdown");
+            let value = dropdown.options[dropdown.selectedIndex].value;
+            let framesDiv = document.getElementById("framesDiv");
+            if (value === "resegmentation") {
+                framesDiv.style.display = "block";
+            } else {
+                framesDiv.style.display = "none";
+            }
+        }
+        function saveConfig() {
+            var data = document.getElementById('userForm');
+            let data_json = getFormJSON(data);
+            config = data_json;
+        }
+
+        function onSubmit() {
+            let formData = new FormData(document.getElementById('userForm'));
+            var data = document.getElementById('userForm')
+            let output = "";
+            for (let [key, value] of formData.entries()) {
+                output += key + ": " + value + "<br>";
+            }
+            document.getElementById("output").innerHTML = output;
+            let divChild = document.createElement("span")
+            divChild.id = "send_button";
+            divChild.appendChild(document.createTextNode("Is this input correct?"))
+            let button = document.createElement("button")
+            button.text = "yes";
+            button.textContent = "Yes";
+            button.name = "verify_button";
+            button.id = "submit_form"
+                
+            let data_json = getFormJSON(data);
+            button.addEventListener("click", function(event) {
+                event.preventDefault(); 
+                let divChild = document.getElementById("send_button");
+                divChild.append(document.createElement("br"));
+                divChild.appendChild(document.createTextNode("Job Sent! Wait for Download Link..."));
+                
+                let jsonData = getFormJSON(document.getElementById("userForm")); // Convert form data to JSON
+            
+                fetch(server_address, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(jsonData)
+                })
+                .then(response => response.blob())
+                .then(blob => {
+                    // Convert the blob to an object URL
+                    let url = window.URL.createObjectURL(blob);
+                    
+                    // Set the download link's href to the object URL
+                    let downloadLink = document.getElementById('downloadLink');
+                    downloadLink.href = url;
+            
+                    // Suggest a default filename for the download (optional)
+                    downloadLink.download = "annotation.zip";
+            
+                    // Display the download link to the user
+                    downloadLink.style.display = 'block';
+                })
+                .then(data => {
+                    console.log(data);
+                    // Handle response here
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Handle errors here
+                });
+            });
+            divChild.append(document.createElement("br"))
+            divChild.appendChild(button)
+            data.appendChild(divChild)
+            <!-- return false;  // prevent actual form submission for demonstration -->
+        }
+    </script>
+</head>
+<body>
+    <h3 style="display:none;"> Not seen </h3
+<br><br><br><br><br><br><br><br><br><br><br><br>
+<h3 id="server_conf">Server Configuration</h3>
+<form>
+    <input type="text" id="serverAddress" placeholder="Enter Server Address">
+    <button type="button" onclick="configureServer()">Configure</button>
+</form>
+
+<h3>Image Display & Controls</h3>
+<img id="displayImage1" src="{{ image_url }}" width="320" alt="Image Viewer">
+<img id="displayImage2" src="{{ image_url }}" width="320" alt="Image Viewer">
+<br>
+<button onclick="backward()">Backward</button>
+<button onclick="forward()">Forward</button>
+<br><br>
+
+<h3>Job Configuration</h3>
+<form id="userForm" onsubmit="return onSubmit()" action="/roar_webpage.html" method="POST", enctype="multipart/form-data">
+    Threads: <input id="threads" type="number" name="threads"><br><br>
+    Job: 
+    <select name="jobType" id="segmentationDropdown" onchange="updateForm()">
+        <option value="initial segmentation">Initial Segmentation</option>
+        <option value="resegmentation">Resegmentation</option>
+    </select><br><br>
+    Job ID: <input id="job_id" yype="number" name="jobId"><br><br>
+    Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox" name="reuseAnnotation"><br><br>
+    Delete job zip on server: <input id="delete_zip" type="checkbox" name="delete_zip"><br><br>
+    <div id="framesDiv" style="display:none;">
+        List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text" name="frames"><br><br>
+    </div>
+    
+    Upload your job.zip: <input type="file" name="jobFile" id="jobFile" accept=".zip"><br><br>
+    <button type="button" id="save_config" className=""front onClick="saveConfig()">
+    <button type="button" id="submit_user_form" className=""front onClick="onSubmit()">
+        submit++
+    </button>
+</form>
+
+<h3>Form Data Output</h3>
+<div id="output"></div>
+<br><br>
+<div id="downloadDiv">
+    <a id="downloadLink" style="display: none;">Download File</a>
+</div>
+
+<script>
+    var server_address = "http://127.0.0.1:5000/upload"
+    var server_main = "http://127.0.0.1:5000"
+    var frame = 0;
+function configureServer() {
+    let serverAddress = new String(document.getElementById("serverAddress").value);
+    let formData = document.getElementById("userForm")
+    // You can save the server address somewhere or update the form's action attribute, etc.
+    if (!serverAddress.includes("/upload")) {
+        if (serverAddress[serverAddress.length - 1] == '/') {
+            server_main = serverAddress.slice(0, serverAddress.length - 1);
+            serverAddress = serverAddress + "upload";
+        } else {
+            server_main = serverAddress;
+            serverAddress = serverAddress + "/upload";
+        }
+        
+    }
+    server_address = serverAddress;
+    formData.action= serverAddress;
+    alert("Configured to server: " + serverAddress);
+}
+function submitForm(){
+            
+    var data = document.getElementById("add_website_form");
+    data_json = getFormJSON(data);
+    insertData(data_json);
+    
+
+    
+}
+const getFormJSON = (form) => {
+    const data = new FormData(form);
+    return Array.from(data.keys()).reduce((result, key) => {
+      if (result[key]) {
+        result[key] = data.getAll(key)
+        return result
+      }
+      result[key] = data.get(key);
+      return result;
+    }, {});
+  };
+
+/** Sends data to flask app. */
+const insertData = (newData) => {
+    console.log("insert data called \n")
+    fetch(server_address, { 
+        method: "POST",
+        headers: {
+            'Content-Type':'application/json'
+        },
+        body: JSON.stringify(newData)
+    })
+    .then(resp => resp.json())
+    .then((data) => {
+        success(data); // display response json from flask to webpage
+        console.log(data)
+    })
+    .catch(error => console.log(error))
+}
+function backward() {
+    fetch(server_main + '/backward').then(response => response.json()).then(data => {
+        document.getElementById("displayImage").src = data.image_url;
+    });
+}
+
+function forward() {
+    fetch(server_main + '/forward').then(response => response.json()).then(data => {
+        document.getElementById("displayImage1").src = data.image_url1;
+        document.getElementById("displayImage2").src = data.image_url2;
+    });
+}
+document.addEventListener('scroll', function() {
+    const maxScroll = document.body.scrollHeight - window.innerHeight;
+    const percentScrolled = window.scrollY / maxScroll;
+    const translateYValue = -(percentScrolled * 100); // inverts the scroll direction for parallax effect
+    document.body.style.setProperty('--translateY', `${translateYValue}%`);
+});
+</script>
+
+</body>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/roar_webpage_centered_styled.css') }}" type="text/css" />
+</html>
