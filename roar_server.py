@@ -1,10 +1,14 @@
-from flask import Flask, request, render_template, send_from_directory, jsonify
+from flask import Flask, request, render_template, send_from_directory, jsonify, session, redirect, url_for
 from flask_cors import CORS
 import os
 from roar_main import arg_main, MainHub, create_main_hub
 import re
 
+from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
+
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_secret_key'  # Change this to a random and secure value
+socketio = SocketIO(app)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 UPLOAD_FOLDER = "/home/roar-apex/Downloads"
