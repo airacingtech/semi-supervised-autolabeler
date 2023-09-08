@@ -7,7 +7,7 @@ import re
 app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
-UPLOAD_FOLDER = "/home/roar-nexus/Downloads"
+UPLOAD_FOLDER = "/home/roar-apex/Downloads"
 # UPLOAD_FOLDER = "C:/Users/chowm/Downloads"
 parent_folder = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
@@ -27,6 +27,7 @@ def upload_file():
         if request.method == 'GET':
             return "Nice try uploading..."
         r = request.get_json(force=True)
+        file_test = request.files
         job_id = int(r['jobId'])
         threads = int(r['threads'])
         reseg_bool = not (r['jobType'] == "initial segmentation")
@@ -38,12 +39,18 @@ def upload_file():
         if reseg_bool:
             frames = r['frames'].split(",")
                 
-        if 'file' not in request.files and not reuse_annotation_output and reseg_bool:
+        if not request.files.get('files') and not reuse_annotation_output and reseg_bool:
             return 'No file part', 400
-        if 'file' in request.files:
-            file = request.files['file']
+        else:
+            file = request.files.get('files')
+            if file is None:
+                filename = str("{}.zip".format(job_id))
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
+                if not os.path.exists(UPLOAD_FOLDER):
+                    return 'Specified UPLOAD_FOLDER in server does not exist', 400
+                # file.save(filepath)
             
-            if file.filename == '' and not reuse_annotation_output:
+            elif file.filename == '' and not reuse_annotation_output:
                 return 'No selected file', 400
             if file:
                 
@@ -52,7 +59,7 @@ def upload_file():
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 if not os.path.exists(UPLOAD_FOLDER):
                     return 'Specified UPLOAD_FOLDER in server does not exist', 400
-                file.save(filepath)
+                # file.save(filepath)
             
         arg_main(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output,
                 threads=threads, reseg_frames=frames, delete_zip=delete_zip)

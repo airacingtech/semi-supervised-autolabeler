@@ -24,8 +24,8 @@ entrypoints==0.3
 fairscale==0.4.13
 fastjsonschema==2.16.3
 fire==0.5.0
-Flask==2.3.2
-Flask-Cors==4.0.0
+flask==2.3.2
+flask-Cors==4.0.0
 fonttools==4.41.1
 fqdn==1.5.1
 fsspec==2023.6.0
@@ -91,8 +91,6 @@ python-dateutil==2.8.2
 python-json-logger==2.0.7
 pytz==2021.3
 PyWavelets==1.4.1
-pywin32==302
-pywinpty==2.0.10
 PyYAML==6.0
 pyzmq==25.0.2
 qtconsole==5.4.2
@@ -109,7 +107,7 @@ Send2Trash==1.8.0
 sentencepiece==0.1.99
 simplejson==3.19.1
 six==1.16.0
-sklearn==0.0.post1
+scikit-learn
 sniffio==1.2.0
 soupsieve==2.4
 spatial-correlation-sampler==0.4.0
