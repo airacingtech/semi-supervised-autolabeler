@@ -39,10 +39,10 @@ def upload_file():
         reuse_annotation_output = bool(r.get('reuseAnnotation'))
         delete_zip = bool(r.get('delete_zip'))
         frames = []
-        
+
         if reseg_bool:
             frames = r['frames'].split(",")
-                
+
         if not request.files.get('files') and not reuse_annotation_output and reseg_bool:
             return 'No file part', 400
         else:
@@ -53,18 +53,18 @@ def upload_file():
                 if not os.path.exists(UPLOAD_FOLDER):
                     return 'Specified UPLOAD_FOLDER in server does not exist', 400
                 # file.save(filepath)
-            
+
             elif file.filename == '' and not reuse_annotation_output:
                 return 'No selected file', 400
             if file:
-                
-                
+
+
                 filename = str(file.filename)
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 if not os.path.exists(UPLOAD_FOLDER):
                     return 'Specified UPLOAD_FOLDER in server does not exist', 400
                 # file.save(filepath)
-            
+
         arg_main(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output,
                 threads=threads, reseg_frames=frames, delete_zip=delete_zip)
         job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
@@ -73,8 +73,8 @@ def upload_file():
     except Exception as e:
         return f"Error while uploading with error: {e}", 400
         # return 'File uploaded successfully'
-        
-        
+
+
 
 
 @app.route('/segment', methods=['POST'])
@@ -109,11 +109,11 @@ def start_client(job_id: int = 0):
 def get_frame_for_client(main_hub, frame: int = 0):
     end_frame_idx = main_hub.roarsegtracker.get_end_frame_idx()
     start_frame_idx = main_hub.roarsegtracker.get_start_frame_idx()
-    img, img_mask = main_hub.get_frame(frame, end_frame_idx=end_frame_idx, 
+    img, img_mask = main_hub.get_frame(frame, end_frame_idx=end_frame_idx,
                                        start_frame_idx=start_frame_idx)
     return img, img_mask
 
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    app.run(port=5000, debug=True)
+    app.run(host="label.roarart.online", port=5000, debug=True)
