@@ -21,7 +21,7 @@ import threading
 import time
 
 
-DOWNLOADS_PATH = "/home/roar-apex/Downloads"
+DOWNLOADS_PATH = "/home/roar-apex/cvat/downloads"
 # DOWNLOADS_PATH = "C:/Users/chowm/Downloads"
 sam_args['generator_args'] = {
         'points_per_side': 30,
@@ -648,8 +648,15 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
         #Add new key frame to key frame arr for saving later
         key_frame_arr = resegment_key_frames[:]
         key_frame_arr.extend(new_frames)
-        key_frame_arr.sort()
         
+        
+        dupes = {}
+        for i in key_frame_arr:
+            if dupes.get(i) is None: 
+                dupes[i] = 1
+            
+        key_frame_arr = list(dupes.keys())
+        key_frame_arr.sort()
         main_hub.resegment_track(past_key_frames=resegment_key_frames, new_frames=new_frames,
                                  multithreading=multithread)
         

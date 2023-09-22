@@ -72,6 +72,6 @@ class RoarFileHandler():
                     zip_ref.extract(member, self.folder_path)
                 elif member == "annotations.xml":
                     annotation_file = os.path.join(self.folder_path, member)
-                    if not os.path.exists(annotation_file):
+                    # if not os.path.exists(annotation_file):
     
-                        zip_ref.extract(member, self.folder_path)
+                    zip_ref.extract(member, self.folder_path)
