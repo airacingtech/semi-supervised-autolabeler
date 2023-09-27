@@ -76,8 +76,7 @@ class RoarSegTracker(SegTracker):
     def start_seg_tracker_for_cvat(self, annotation_dir=""):
         '''Prime seg tracker for use with cvat export
         Arguments:
-            start_idx: int
-            end_idx: int
+            annotation_dir (str) : path to annotation file
         Return:
             none
         '''

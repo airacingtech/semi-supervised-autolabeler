@@ -570,6 +570,10 @@ def get_correct_input(bool_func=lambda x: x, process_function= lambda x: x, ques
         check = input("is your input: {} correct? (y/n) ".format(answer))
         repeat = ((check == 'y' or check == 'Y') and not bool_func(answer))
     return answer   
+def numpy_to_base64(img_np):
+    is_success, im_buf_arr = cv2.imencode(".jpg", img_np)
+    byte_im = im_buf_arr.tobytes()
+    return base64.b64encode(byte_im).decode('utf-8')
 if __name__ == '__main__':
     ##TESTING
     masks, labels_dict, img_dim, start_frame, stop_frame = xml_to_masks("/home/roar-nexus/Downloads/annotations.xml")

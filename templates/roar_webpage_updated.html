@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <title>Form Submission and Image Viewer</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     </section><script>
         var config = null;
         function updateForm() {
@@ -30,6 +31,8 @@
             for (let [key, value] of formData.entries()) {
                 output += key + ": " + value + "<br>";
             }
+            document.getElementById("downloadDiv").style.display = 'none';
+            document.getElementById("output").className = 'output-class';
             document.getElementById("output").innerHTML = output;
             let divChild = document.createElement("span")
             divChild.id = "send_button";
@@ -53,31 +56,55 @@
                     method: 'POST',
                     body: formData
                 })
-                .then(response => response.blob())
-                .then(blob => {
-                    // Convert the blob to an object URL
-                    let url = window.URL.createObjectURL(blob);
+                .then(response => {
+                    const contentType = response.headers.get('Content-Type');
+                
+                    if (contentType && contentType.includes('text')) {
+                      return response.text();  // process as text
+                    }
+                    return response.blob();  // process as blob
+                  })
+                  .then(data => {
+                    if (typeof data === 'string') {
+                        console.log('Received string:', data);
+                        let infoBox = document.getElementById("output");
+                        infoBox.innerHTML = "Download Failed";
+                        // Handle the string data (e.g., display an error message to the user)
+                    } else {
+                        // Handle the blob data (e.g., initiate a download)
+                        const blob = data;
+                        let url = window.URL.createObjectURL(blob);
                     
-                    // Set the download link's href to the object URL
-                    let downloadLink = document.getElementById('downloadLink');
-                    let downloadDiv = document.getElementById("downloadDiv");
-                    downloadLink.href = url;
-            
-                    // Suggest a default filename for the download (optional)
-                    downloadLink.download = "annotation.zip";
-            
-                    // Display the download link to the user
-                    downloadDiv.style.display = 'block';
-                    downloadLink.style.display = 'block';
-                })
-                .then(data => {
+                        // Set the download link's href to the object URL
+                        let downloadLink = document.getElementById("downloadLink");
+                        let downloadDiv = document.getElementById("output");
+                        downloadDiv.style.display = 'none';
+                        downloadDiv = document.getElementById("downloadDiv");
+                        downloadDiv.style.display = 'block';
+                        downloadLink.href = url;
+                        downloadLink.addEventListener('click', function() {
+                            // Wait for a brief moment before refreshing to ensure the download initiates
+                            setTimeout(function() {
+                                location.reload();
+                            }, 100);
+                        });
+                
+                        // Suggest a default filename for the download (optional)
+                        downloadLink.download = "annotation.zip";
+                
+                        // Display the download link to the user
+                        downloadDiv.style.display = 'block';
+                        downloadDiv.className = "download-section";
+                        downloadLink.style.display = 'block';
+                    }
+                  }).then(data => {
                     console.log(data);
                     // Handle response here
                 })
-                .catch(error => {
+                  .catch(error => {
                     console.error('Error:', error);
-                    // Handle errors here
-                });
+                  });
+                
             });
             divChild.append(document.createElement("br"))
             divChild.appendChild(button)
@@ -107,11 +134,13 @@
     <button type="button" onclick="configureServer()">Configure</button>
 </form>
 
-</section><section class="image-display-section"><h3>Image Display & Controls</h3>
+</section><section class="image-display-section" id="image-display"><h3>Image Display & Controls</h3>
+    
 <img id="displayImage1" src="{{ image_url }}" width="320" alt="Image Viewer">
 <img id="displayImage2" src="{{ image_url }}" width="320" alt="Image Viewer">
 <br>
 <button onclick="backward()">Backward</button>
+<input type="number" id="frameInput" placeholder="Input frame number here">
 <button onclick="forward()">Forward</button>
 <br><br>
 
@@ -127,22 +156,27 @@
         <option value="initial segmentation">Initial Segmentation</option>
         <option value="resegmentation">Resegmentation</option>
     </select><br><br>
-    Job ID: <input id="job_id" yype="number" name="jobId"><br><br>
+    Job ID: <input id="job_id" yype="number" name="jobId" placeholder="Input Job ID here"><br><br>
     Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox" name="reuseAnnotation"><br><br>
     Delete job zip on server: <input id="delete_zip" type="checkbox" name="delete_zip"><br><br>
     <div id="framesDiv" style="display:none;">
-        List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text" name="frames"><br><br>
+        List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text" name="frames" placeholder="ex: 7,9,10 (no spaces)"><br><br>
     </div>
     
     Upload your job.zip: <input type="file" name="file" id="jobFile"><br><br>
-    <button type="button" id="save_config" className=""front onClick="saveConfig()". style="display:none;"">
+    <button type="button" id="save_config" className=""front onClick="frameTrack()"> 
+        frame-by-frame tracking
+    </button>
+
     <button type="button" id="submit_user_form" className=""front onClick="onSubmit()">
-        submit
+        Automatic Track
     </button>
 </form>
 
 </section><section class="form-output-section"><h3>Form Data Output</h3>
-<div id="output"></div>
+<div id="output" class="output-class">
+    <a class="download-link" id="download" style="display: none;">Download File</a>
+</div>
 <br><br>
 <div class="download-section"><div id="downloadDiv" style="display:none;">
     <a class="download-link" id="downloadLink" style="display: none;">Download File</a>
@@ -208,24 +242,149 @@ const insertData = (newData) => {
     })
     .catch(error => console.log(error))
 }
-function backward() {
-    fetch(server_main + '/backward').then(response => response.json()).then(data => {
-        document.getElementById("displayImage").src = data.image_url;
-    });
-}
 
-function forward() {
-    fetch(server_main + '/forward').then(response => response.json()).then(data => {
-        document.getElementById("displayImage1").src = data.image_url1;
-        document.getElementById("displayImage2").src = data.image_url2;
-    });
-}
 document.addEventListener('scroll', function() {
     const maxScroll = document.body.scrollHeight - window.innerHeight;
     const percentScrolled = window.scrollY / maxScroll;
     const translateYValue = -(percentScrolled * 100); // inverts the scroll direction for parallax effect
     document.body.style.setProperty('--translateY', `${translateYValue}%`);
 });
+
+        const socket = io.connect(server_main);
+        var jobId = -1;
+        var start_frame = -1;
+        var end_frame = -1;
+        const frameInput = document.getElementById('frameInput');
+        var isConnected = false;
+        //frameInput.addEventListener('blur', sendFrameToServer); // Send when cursor leaves the textbox
+        frameInput.addEventListener('keyup', function(event) {
+            // Send when "Enter" key is pressed
+            if (event.keyCode === 13) {
+                sendFrameToServer();
+            }
+        });
+        const jobInput = document.getElementById('job_id');
+
+        jobInput.addEventListener('blur', sendJobToServer);
+        jobInput.addEventListener('keyup', function(event) {
+            if (event.keyCode === 13) {
+                sendJobToServer();
+            }
+        })
+        function frameTrack() {
+            let formData = new FormData(document.getElementById('userForm'));
+            isConnected = true;
+            var data = document.getElementById('userForm')
+            let output = "";
+            for (let [key, value] of formData.entries()) {
+                output += key + ": " + value + "<br>";
+            }
+            document.getElementById("downloadLink2").style.display = 'none';
+            document.getElementById("output").className = 'output-class';
+            document.getElementById("output").innerHTML = output;
+            let divChild = document.createElement("span")
+            divChild.id = "send_button";
+            divChild.appendChild(document.createTextNode("Is this input correct?"))
+            let button = document.createElement("button")
+            button.text = "yes";
+            button.textContent = "Yes";
+            button.name = "verify_button";
+            button.id = "submit_form"
+                
+            
+            button.addEventListener("click", function(event) {
+                event.preventDefault(); 
+                let divChild = document.getElementById("send_button");
+                divChild.append(document.createElement("br"));
+                divChild.appendChild(document.createTextNode("Job Sent! Wait for Frames to Load..."));
+                
+                //jobId = parseInt(jobInput.value, 10);
+                sendJobToServer(formData)
+                
+            });
+            divChild.append(document.createElement("br"))
+            divChild.appendChild(button)
+            data.appendChild(divChild)
+        }
+        function sendJobToServer(formData) {
+            jobId = parseInt(jobInput.value, 10);
+            if (!isNan(jobId) && jobId > -1) {
+                
+                socket.emit('frame_track_start', formData);
+            }
+        }      
+        function saveJob() {
+            if (jobId > -1) {
+                socket.emit('save_job', jobId);
+            }
+        }  
+        socket.on('post_annotation', function(response) {
+            if (response.type === 'text') {
+                console.log('Received string:', response.content);
+                let infoBox = document.getElementById("output");
+                infoBox.innerHTML = "Download Failed";
+                // Handle the string data (e.g., display an error message to the user)
+            } else if (response.type === 'blob') {
+                // Handle the blob data (e.g., initiate a download)
+                const blob = new Blob([response.content]);
+                let url = window.URL.createObjectURL(blob);
+            
+                // Set the download link's href to the object URL
+                let downloadLink = document.getElementById('downloadLink2');
+                let downloadDiv = document.getElementById("output");
+                downloadLink.href = url;
+        
+                // Suggest a default filename for the download (optional)
+                downloadLink.download = "annotation.zip";
+        
+                // Display the download link to the user
+                downloadDiv.style.display = 'block';
+                downloadDiv.className = "download-section";
+                downloadLink.style.display = 'block';
+            }
+        });
+        socket.on('post_frame_range', function(response) {
+            if (response.type === 'int') {
+                start_frame = response.start_frame;
+                end_frame = response.end_frame;
+                var textNode1 = document.createTextNode("Valid Frame Range is ${start_frame} to ${end_frame}");
+                let section = document.getElementById('image-display');
+                section.appendChild(textNode1);
+            }
+        })
+        socket.on('post_images', function(response) {
+            if (response.type === 'image') {
+                let img_data = response['img'];
+                let img_mask_data = response['img_mask'];
+                let img_display1 = document.getElementById("displayImage1");
+                let img_display2 = document.getElementById("displayImage2");
+                img_display1.src = 'data:image/jpeg;base64,' + img_data;
+                img_display2.src = 'data:image/jpeg;base64,' + img_mask_data;
+            }
+        })
+        function sendFrameToServer() {
+            const frameValue = parseInt(frameInput.value, 10);
+            if (!isNaN(frameValue) && jobId > -1) {
+                socket.emit('frame_value', {
+                    job_id: jobId,
+                    frame: frameValue
+                });
+            }
+        }
+        function backward() {
+            changeFrame(-1);
+        }
+        
+        function forward() {
+            changeFrame(1);
+        }
+        function changeFrame(valueChange) {
+            const currentFrame = parseInt(frameInput.value, 10);
+            if (!isNaN(currentFrame)) {
+                frameInput.value = currentFrame + valueChange;
+                sendFrameToServer();
+            }
+        }
 </script>
 
 </body>

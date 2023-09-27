@@ -1,3 +1,4 @@
+import sys
 from networks.engines.aot_engine import AOTEngine, AOTInferEngine
 from networks.engines.deaot_engine import DeAOTEngine, DeAOTInferEngine
 

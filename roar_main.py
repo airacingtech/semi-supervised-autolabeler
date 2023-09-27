@@ -63,6 +63,10 @@ class MainHub():
         #multithreading
         self.max_workers = MainHub.MAX_WORKERS
         self.lock = threading.Lock()
+        #reseg frame-by-frame track option
+        self.new_frames: list[int] = []
+        self.reseg_idx: int = 0
+        self.key_frame_path: str = ""
         #options
         self.id_countour = False #countour masks for img w/ mask overlay feature
     def setup(self):
@@ -91,8 +95,18 @@ class MainHub():
         with open(output_dir, "r") as f:
             list_vars = json.load(f)
             return list_vars
-        
-        
+    def set_key_frame_path(self, key_frame_path: str):
+        self.key_frame_path = key_frame_path
+    def get_key_frame_path(self):
+        return self.key_frame_path
+    def set_reseg_idx(self, reseg_idx: int):
+        self.reseg_idx = reseg_idx
+    def get_reseg_idx(self) -> int:
+        return self.reseg_idx
+    def set_new_frames(self, new_frames: list[int]):
+        self.new_frames = new_frames
+    def get_new_frames(self):
+        return self.new_frames
     def store_tracker(self, frame=""):
         tracker_serial_data = RoarSegTracker.store_data(self.roarsegtracker)
         folder_name = "tracker_data"
@@ -112,8 +126,51 @@ class MainHub():
         with open(file_path, 'rb') as outfile:
             tracker_serial_data = outfile.read()
         self.roarsegtracker = RoarSegTracker.load_data(tracker_serial_data)
+    def get_roar_seg_tracker(self) -> RoarSegTracker:
+        return self.roarsegtracker
         
-        
+    def setup_reseg_key_frames(self, new_frames: list[int], past_frames: list[int]):
+        try:
+            combined_frames = past_frames + new_frames
+            dupes = {}
+            for frame in combined_frames:
+                dupes[frame] = 1
+            frames = list(dupes.keys())
+            frames.sort()
+            return frames
+        except Exception as e:
+            print(f"Error: {e}")
+            
+    def remake_key_frames(self, roarsegtracker: RoarSegTracker, new_frames: list[int], past_frames: list[int]):
+        """
+        Remakes the key_frame to mask_object dictionary by removing frame that would be generated again by new_frames
+        declared for resegmentation
+        Arguments:
+            roarsegtracker (RoarSegTracker): The tracker associated with this tracking run
+            new_frames (list[int]): list of new key frames declared for resegmentation
+            past_frames (list[int]): old key frames from previous tracking runs
+        Returns:
+            combined_frames (list[int]): arr of combined_frames
+        """
+        combined_frames = self.setup_reseg_key_frames(new_frames, past_frames)
+        end_frame_idx = roarsegtracker.get_end_frame_idx()
+        new_frame_queue = new_frames[:]
+        for i in range(len(combined_frames)):
+            if len(new_frame_queue) == 0:
+                break
+            elif combined_frames[i] == new_frame_queue[0]:
+                new_frame_queue.pop(0)
+                if i + 1 < len(combined_frames):
+                    end = combined_frames[i + 1]
+                else:
+                    end = end_frame_idx
+                for frame in range(combined_frames[i] + 1, end + 1):
+                    if self.track_key_frame_mask_objs.get(frame) is not None:
+                        self.track_key_frame_mask_objs.pop(frame)
+                        
+                
+        return combined_frames
+                
     def get_frame(self, frame: int = -1, end_frame_idx: int = -1, start_frame_idx: int = -1):
         """given desired frame, return image at desired frame with generated masks
 
@@ -121,8 +178,9 @@ class MainHub():
             frame (int, optional): int value of desired frame. Defaults to -1.
             end_frame_idx (int, optional): edge case for when to stop looking for frames. Defaults to -1.
             start_frame_idx (int): edge case for when to start looking for frames. Defaults to -1
+            reseg (bool) : tells object if its a resegmentation task.
         Returns:
-            [img, img_mask]: list of 3 dimensional img for given frame as well as the image with mask overlay
+            [img, img_mask]: list of 3 dimensional img (RGB) for given frame as well as the image with mask overlay
         """
         img_dim = self.roarsegtracker.get_img_dim()
         if start_frame_idx > frame or frame > end_frame_idx:
@@ -137,12 +195,13 @@ class MainHub():
         
         if self.track_key_frame_mask_objs.get(frame) is None:
             #find closest frame to desired frame
-            if frame - 1 != tWalker:
+            if frame - 1 != tWalker and (not reseg or len(new_frames) == 0):
                 for k, v in self.track_key_frame_mask_objs.items():
                     dist = frame - k
                     if dist < min_dist and dist >= 0:
                         min_dist = dist 
                         tWalker = k
+            
             #set key frame
             roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
             key_frame = tWalker
@@ -491,6 +550,36 @@ class MainHub():
     def tune(self):
         #TODO: add tuning on first frame with gui to adjust tuning values for tracking
         return
+def save_main_hub(main_hub: MainHub):
+    """Saves Main_Hub Object and deletes it
+    
+    Arguments:
+        mainhub (MainHub): main_hub object to save and delete
+    
+    Returns:
+        None  
+    """
+    reseg_idx = 1
+    if rmain_hub.get_reseg_idx() != 0: #reseg_idx declaraed 0 on init, 1 if resegment until saving where it chnaages
+        resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)
+        new_frames = reseg_frames
+        
+        annotations_output = os.path.join(output_dir, "annotations_output")
+        annotation_output_path = os.path.join(annotations_output, "annotations.xml")
+        annotation_copy_path = os.path.join(annotations_output, "annotations_{}.xml".format(reseg_idx))
+        #save previous annotations output
+        if os.path.exists(annotation_output_path):
+            with open(annotation_output_path, 'r') as f:
+                with open(annotation_copy_path, 'w') as f2:
+                    f2.write(f.read())
+            reseg_idx += 1
+    key_frame_arr = main_hub.get_roar_seg_tracker().get_key_frame_arr()
+    main_hub.store_key_frames(key_frames=key_frame_arr, 
+                              reseg_idx=reseg_idx, output_dir=main_hub.get_key_frame_path())
+    main_hub.save_annotations()
+    del main_hub
+    torch.cuda.empty_cache()
+    gc.collect()
 def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
              reseg_bool: bool = False, reuse_output: bool = False) -> MainHub:
     """Creates MainHub Object
@@ -529,6 +618,7 @@ def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args
     photo_dir = os.path.join(main_path, "images")
     annotation_path = os.path.join(main_path, "annotations.xml")
     key_frame_path = os.path.join(main_path, "key_frames_{}".format(job_id))
+    
     if not os.path.exists(annotation_path) or not os.path.exists(photo_dir):
         raise RuntimeError("annotations.xml or images directory not found")
     output_dir = os.path.join(main_path, "output")
@@ -547,9 +637,17 @@ def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
         reseg_path = annotation_output_path
         
+        
     main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
                        photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
                        output_dir=output_dir)
+    main_hub.set_key_frame_path(key_frame_path)
+    if resegment:
+        main_hub.set_reseg_idx(1)
+        new_frames = main_hub.get_new_frames()
+        past_frames, reseg_idx = main_hub.get_key_frames(main_hub.get_key_frame_path())
+        key_frame_arr = main_hub.remake_key_frames(main_hub.get_roar_seg_tracker(), new_frames, past_frames)
+        main_hub.get_roar_seg_tracker.set_key_frame_arr(key_frame_arr)
     return main_hub
     
 def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
@@ -618,22 +716,18 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
                        photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
                        output_dir=output_dir)
+    main_hub.set_key_frame_path(key_frame_path)
     start_time = time.time() 
-    reseg_idx = 1
+    
     #start tracking
     main_hub.max_workers = threads
     multithread = threads > 1
     
+    reseg_idx = 1
     if resegment:
         resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)
         repeat = True
         new_frames = reseg_frames
-        
-        
-        
-            
-            
-        
         
         annotations_output = os.path.join(output_dir, "annotations_output")
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
@@ -739,6 +833,7 @@ def main():
     photo_dir = os.path.join(main_path, "images")
     annotation_path = os.path.join(main_path, "annotations.xml")
     key_frame_path = os.path.join(main_path, "key_frames_{}".format(job_id))
+    
     if not os.path.exists(annotation_path) or not os.path.exists(photo_dir):
         return RuntimeError("annotations.xml or images directory not found")
     output_dir = os.path.join(main_path, "output")
@@ -760,6 +855,7 @@ def main():
     main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
                        photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
                        output_dir=output_dir)
+    main_hub.set_key_frame_path(key_frame_path)
     start_time = time.time() 
     reseg_idx = 1
     #start tracking
