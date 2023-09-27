@@ -13,6 +13,8 @@ from zipfile import ZipFile
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from aot_tracker import _palette
 from scipy.ndimage import binary_dilation
+import cv2
+import base64
 # from RoarSegTracker import RoarSegTracker
 # from RoarSegTracker import RoarSegTracker
 

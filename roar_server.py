@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask, request, render_template, send_from_directory, jsonify, session, redirect, url_for
 from flask_cors import CORS
 import os
@@ -15,7 +17,7 @@ secret_key = "no key found"
 with open(keypath, "r") as f:
     secret_key = f.read()
 app.config['SECRET_KEY'] = secret_key  # Change this to a random and secure value
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="https://label.roarart.online:5000")
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 UPLOAD_FOLDER = "/home/roar-apex/cvat/downloads"
@@ -140,46 +142,47 @@ def get_frame_for_client(main_hub, frame: int = 0):
 # #socketio
 @socketio.on('frame_track_start')
 def assign_tracker(formData):
-    if TRACKERS.get(jobId) is not None:
-        return
-    else:
-        file_test = request.files.get('file')
-        # r = request.get_json(force=True)
-        r = request.form
-        
-        job_id = int(r.get('jobId'))
-        
-        if type(r.get('threads')) is str or type(r.get('threads')) is int:
-            threads = r['threads']
-            if threads == '':
-                threads = 1
-            else:
-                threads = int(r['threads'])
-        else: 
+    
+    # file_test = request.files.get('file')
+    # r = request.get_json(force=True)
+    r = formData
+    print(f"r: {r}")
+    job_id = int(r.get('jobId'))
+    
+    if type(r.get('threads')) is str or type(r.get('threads')) is int:
+        threads = r['threads']
+        if threads == '':
             threads = 1
-        reseg_bool = not (r['jobType'] == "initial segmentation")
-        # on_pattern = r'([O|o][n|N])'
-        reuse_annotation_output = bool(r.get('reuseAnnotation'))
-        delete_zip = bool(r.get('delete_zip'))
-        frames = []
+        else:
+            threads = int(r['threads'])
+    else: 
+        threads = 1
+    reseg_bool = not (r['jobType'] == "initial segmentation")
+    # on_pattern = r'([O|o][n|N])'
+    reuse_annotation_output = bool(r.get('reuseAnnotation'))
+    delete_zip = bool(r.get('delete_zip'))
+    frames = []
 
-        if reseg_bool:
-            frames = r['frames'].split(",") if r.get('frames') is not None and r.get('frames') != '' else []
-            frames = [int(frame) for frame in frames]
-       
-       
-
-        tracker_object = create_main_hub(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output)
-        main_hub.set_tracker()
-        main_hub.track_key_frame_mask_objs = main_hub.get_roar_seg_tracker().get_key_frame_to_masks()
-        end_frame_idx = main_hub.get_roar_seg_tracker().get_end_frame_idx()
-        start_frame_idx = main_hub.get_roar_seg_tracker().get_start_frame_idx()
-        TRACKERS[job_id] = tracker_object
-        emit('post_frame_range', {
-            'type' : 'int',
-            'start_frame' : start_frame_idx,
-            'end_frame' : end_frame_idx
-        }, room=request.sid)
+    if reseg_bool:
+        frames = r['frames'].split(",") if r.get('frames') is not None and r.get('frames') != '' else []
+        frames = [int(frame) for frame in frames]
+    
+    
+    if TRACKERS.get(job_id) is not None:
+        return
+    
+    tracker_object = create_main_hub(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output)
+    main_hub = tracker_object
+    main_hub.set_tracker()
+    main_hub.track_key_frame_mask_objs = main_hub.get_roar_seg_tracker().get_key_frame_to_masks()
+    end_frame_idx = main_hub.get_roar_seg_tracker().get_end_frame_idx()
+    start_frame_idx = main_hub.get_roar_seg_tracker().get_start_frame_idx()
+    TRACKERS[job_id] = tracker_object
+    emit('post_frame_range', {
+        'type' : 'int',
+        'start_frame' : start_frame_idx,
+        'end_frame' : end_frame_idx
+    }, room=request.sid)
         
 @socketio.on('save_job')
 def save_tracker(jobId):

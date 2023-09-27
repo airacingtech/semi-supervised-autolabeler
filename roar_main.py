@@ -195,7 +195,7 @@ class MainHub():
         
         if self.track_key_frame_mask_objs.get(frame) is None:
             #find closest frame to desired frame
-            if frame - 1 != tWalker and (not reseg or len(new_frames) == 0):
+            if frame - 1 != tWalker:
                 for k, v in self.track_key_frame_mask_objs.items():
                     dist = frame - k
                     if dist < min_dist and dist >= 0:

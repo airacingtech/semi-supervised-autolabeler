@@ -7,6 +7,11 @@
     <title>Form Submission and Image Viewer</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     </section><script>
+        if (!isNaN) {
+            isNaN = (value) => {
+                return value !== value;
+            };
+        }
         var config = null;
         function updateForm() {
             let dropdown = document.getElementById("segmentationDropdown");
@@ -251,6 +256,10 @@ document.addEventListener('scroll', function() {
 });
 
         const socket = io.connect(server_main);
+        
+        socket.on("connect_error", (err) => {
+            console.log(`connect_error due to ${err.message}`);
+          });
         var jobId = -1;
         var start_frame = -1;
         var end_frame = -1;
@@ -279,7 +288,7 @@ document.addEventListener('scroll', function() {
             for (let [key, value] of formData.entries()) {
                 output += key + ": " + value + "<br>";
             }
-            document.getElementById("downloadLink2").style.display = 'none';
+            document.getElementById("downloadDiv").style.display = 'none';
             document.getElementById("output").className = 'output-class';
             document.getElementById("output").innerHTML = output;
             let divChild = document.createElement("span")
@@ -291,7 +300,7 @@ document.addEventListener('scroll', function() {
             button.name = "verify_button";
             button.id = "submit_form"
                 
-            
+            let jsonData = getFormJSON(document.getElementById("userForm"));
             button.addEventListener("click", function(event) {
                 event.preventDefault(); 
                 let divChild = document.getElementById("send_button");
@@ -299,7 +308,7 @@ document.addEventListener('scroll', function() {
                 divChild.appendChild(document.createTextNode("Job Sent! Wait for Frames to Load..."));
                 
                 //jobId = parseInt(jobInput.value, 10);
-                sendJobToServer(formData)
+                sendJobToServer(jsonData);
                 
             });
             divChild.append(document.createElement("br"))
@@ -308,13 +317,13 @@ document.addEventListener('scroll', function() {
         }
         function sendJobToServer(formData) {
             jobId = parseInt(jobInput.value, 10);
-            if (!isNan(jobId) && jobId > -1) {
+            if (!isNaN(jobId) && jobId > -1) {
                 
                 socket.emit('frame_track_start', formData);
             }
         }      
         function saveJob() {
-            if (jobId > -1) {
+            if (jobId > -1 && isConnected) {
                 socket.emit('save_job', jobId);
             }
         }  
@@ -327,12 +336,20 @@ document.addEventListener('scroll', function() {
             } else if (response.type === 'blob') {
                 // Handle the blob data (e.g., initiate a download)
                 const blob = new Blob([response.content]);
-                let url = window.URL.createObjectURL(blob);
+                let url = Number.URL.createObjectURL(blob);
             
-                // Set the download link's href to the object URL
-                let downloadLink = document.getElementById('downloadLink2');
+                let downloadLink = document.getElementById("downloadLink");
                 let downloadDiv = document.getElementById("output");
+                downloadDiv.style.display = 'none';
+                downloadDiv = document.getElementById("downloadDiv");
+                downloadDiv.style.display = 'block';
                 downloadLink.href = url;
+                downloadLink.addEventListener('click', function() {
+                    // Wait for a brief moment before refreshing to ensure the download initiates
+                    setTimeout(function() {
+                        location.reload();
+                    }, 100);
+                });
         
                 // Suggest a default filename for the download (optional)
                 downloadLink.download = "annotation.zip";
@@ -347,7 +364,7 @@ document.addEventListener('scroll', function() {
             if (response.type === 'int') {
                 start_frame = response.start_frame;
                 end_frame = response.end_frame;
-                var textNode1 = document.createTextNode("Valid Frame Range is ${start_frame} to ${end_frame}");
+                var textNode1 = document.createTextNode("Valid Frame Range is " +  start_frame + " to " + end_frame);
                 let section = document.getElementById('image-display');
                 section.appendChild(textNode1);
             }
@@ -364,7 +381,7 @@ document.addEventListener('scroll', function() {
         })
         function sendFrameToServer() {
             const frameValue = parseInt(frameInput.value, 10);
-            if (!isNaN(frameValue) && jobId > -1) {
+            if (!isNaN(frameValue) && jobId > -1 && isConnected) {
                 socket.emit('frame_value', {
                     job_id: jobId,
                     frame: frameValue
