@@ -5,6 +5,112 @@
     padding: 0;
     box-sizing: border-box;
 }
+#backButton {
+    padding: 1em;
+    border: none;
+    background-color: #6cbdec; /* Pastel blue */
+    color: #FFFFFF;
+    font-weight: bold;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+    position: absolute;
+    bottom: 60px;
+    left: 15%;
+}
+#forwardButton {
+    padding: 1em;
+    border: none;
+    background-color: #6cbdec; /* Pastel blue */
+    color: #FFFFFF;
+    font-weight: bold;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+    position: absolute;
+    bottom: 60px;
+    right: 15%;
+}
+#saveButton {
+    padding: 1em;
+    border: none;
+    background-color: #6cbdec; /* Pastel blue */
+    color: #FFFFFF;
+    font-weight: bold;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+    position: absolute;
+    bottom: 15px;
+    left: 45%;
+    
+}
+.output-class {
+    background-color: #E7F0C3; /* Pastel green */
+    padding: 1em;
+    border-radius: 20px;
+    margin-top: 2em;
+    width: 80%; /* Control the width */
+    align-self: center; /* centering horizontally */
+}
+#frameRange {
+    position: relative;
+    align-self: center;
+    text-align: center;
+    background-color: #4C4C4C;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: auto;
+    min-width: 100px;
+    min-height: 30px;
+    height: auto;
+    width: auto;
+    color:#E0D5C1;
+    padding: 5%;
+}
+#image-display {
+    position: relative;
+    margin-top: 0;
+    overflow: auto;
+    transform: none;
+    background-color: #4C4C4C;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    align-self: center;
+    top: 20px;
+    bottom: 5px;
+    padding-top: 50px;
+    text-align: center;
+    min-width: 600px;
+    min-height: 600px;
+    height: auto;
+    width: auto;
+    display: flex;
+    flex-wrap: wrap;
+    color:rgb(255, 255, 255);
+}
+#displayImage1 {
+    position: relative;
+    left: 5%;
+    padding: 2%;
+}
+#displayImage2 {
+    position: relative;
+    right: 5%;
+    padding: 2%;
+}
+#frameInput {
+    padding: 0.5em;
+    border: 1px solid #E0D5C1;
+    border-radius: 20px;
+    outline: none;
+    position: absolute;
+    height: 35px;
+    bottom: 65px;
+    left: 35%;
+
+    /* color: #e4e4e4; */
+}
 #sidePanel {
     border: 1px solid black;
     background-color: #38383a;
@@ -41,7 +147,14 @@ body {
     align-items: center;
     justify-content: center;
     height: 100vh;
+    overflow: auto;
+    height: auto;
 }
+html {
+    height: auto;
+    min-height: 100vh;
+}
+
 .form-output-section {
     position: relative;
     top: 50px;

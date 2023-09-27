@@ -67,6 +67,7 @@ class MainHub():
         self.new_frames: list[int] = []
         self.reseg_idx: int = 0
         self.key_frame_path: str = ""
+        self.root_path: str = ""
         #options
         self.id_countour = False #countour masks for img w/ mask overlay feature
     def setup(self):
@@ -85,7 +86,10 @@ class MainHub():
         if annontation_dir != "":
             self.annotation_dir = annontation_dir
         self.roarsegtracker.start_seg_tracker_for_cvat(annotation_dir=self.annotation_dir)
-        
+    def set_root(self, path: str):
+        self.root_path = path
+    def get_root(self) -> str:
+        return self.root_path
     def store_key_frames(self, key_frames: list[int] = [], reseg_idx: int = 0, 
                          output_dir: str = ""):
         list_vars = [key_frames, reseg_idx]
@@ -560,10 +564,11 @@ def save_main_hub(main_hub: MainHub):
         None  
     """
     reseg_idx = 1
-    if rmain_hub.get_reseg_idx() != 0: #reseg_idx declaraed 0 on init, 1 if resegment until saving where it chnaages
-        resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)
-        new_frames = reseg_frames
-        
+    if main_hub.get_reseg_idx() != 0: #reseg_idx declaraed 0 on init, 1 if resegment until saving where it chnaages
+        resegment_key_frames, reseg_idx = main_hub.get_key_frames(main_hub.get_key_frame_path())
+        new_frames = main_hub.get_new_frames()
+        main_path = main_hub.get_root()
+        output_dir = os.path.join(main_path, "output")
         annotations_output = os.path.join(output_dir, "annotations_output")
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
         annotation_copy_path = os.path.join(annotations_output, "annotations_{}.xml".format(reseg_idx))
@@ -642,12 +647,13 @@ def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args
                        photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
                        output_dir=output_dir)
     main_hub.set_key_frame_path(key_frame_path)
+    main_hub.set_root(main_path)
     if resegment:
         main_hub.set_reseg_idx(1)
         new_frames = main_hub.get_new_frames()
         past_frames, reseg_idx = main_hub.get_key_frames(main_hub.get_key_frame_path())
         key_frame_arr = main_hub.remake_key_frames(main_hub.get_roar_seg_tracker(), new_frames, past_frames)
-        main_hub.get_roar_seg_tracker.set_key_frame_arr(key_frame_arr)
+        main_hub.get_roar_seg_tracker().set_key_frame_arr(key_frame_arr)
     return main_hub
     
 def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
@@ -716,7 +722,7 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
                        photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
                        output_dir=output_dir)
-    main_hub.set_key_frame_path(key_frame_path)
+    # main_hub.set_key_frame_path(key_frame_path)
     start_time = time.time() 
     
     #start tracking

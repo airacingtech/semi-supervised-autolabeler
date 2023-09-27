@@ -130,26 +130,29 @@
         setInterval(fetchUpdate, 2000);
     </script>
 </head>
-<body>
-    <h3 class="hidden-section">Not seen</h3>
-<br><br><br><br><br><br><br><br><br><br><br><br>
-<section class="server-config-section"><br><br><h3 id="server_conf">Server Configuration</h3><br>
+
+<section class="server-config-section"><h3 id="server_conf">Server Configuration</h3><br>
 <form>
     <input type="text" id="serverAddress" placeholder="Enter Server Address">
     <button type="button" onclick="configureServer()">Configure</button>
 </form>
 
-</section><section class="image-display-section" id="image-display"><h3>Image Display & Controls</h3>
+</section>
+<br/>
+<section class="image-display-section" id="image-display" style="display:none;"><h3>Image Display & Controls</h3>
     
-<img id="displayImage1" src="{{ image_url }}" width="320" alt="Image Viewer">
-<img id="displayImage2" src="{{ image_url }}" width="320" alt="Image Viewer">
+<img id="displayImage1" src="{{ image_url }}" width="auto" alt="Image Viewer">
+<img id="displayImage2" src="{{ image_url }}" width="auto" alt="Image Viewer">
 <br>
-<button onclick="backward()">Backward</button>
+<button onclick="backward()" id="backButton">Backward</button>
 <input type="number" id="frameInput" placeholder="Input frame number here">
-<button onclick="forward()">Forward</button>
+<button onclick="forward()" id="forwardButton">Forward</button>
 <br><br>
-
-</section><section class="job-config-section"><h3 id="jobformtitle">Job Configuration</h3>
+<button onclick="saveJob()" id="saveButton">Save</button>
+</section>
+<br/>
+<section id="frameRange" style="display:none;"></section> <br/>
+<section class="job-config-section"><h3 id="jobformtitle">Job Configuration</h3>
 <div id="sidePanel">
     <h3>Update Panel</h3>
     <pre id="content"></pre>
@@ -254,9 +257,20 @@ document.addEventListener('scroll', function() {
     const translateYValue = -(percentScrolled * 100); // inverts the scroll direction for parallax effect
     document.body.style.setProperty('--translateY', `${translateYValue}%`);
 });
+        window.addEventListener('beforeunload', (event) => {
+            saveJob();
+        })
 
-        const socket = io.connect(server_main);
-        
+        const socket = io.connect(server_main, {
+            reconnection: true,       // whether to reconnect automatically
+            reconnectionAttempts: 5,  // number of reconnection attempts before giving up
+            reconnectionDelay: 1000,  // how long to initially wait before attempting a new reconnection
+            reconnectionDelayMax: 5000, // maximum amount of time to wait between reconnection attempts
+            randomizationFactor: 0.5
+        });
+        socket.on('disconnect', (reason) => {
+            console.log('Disconnected: ', reason);
+        });
         socket.on("connect_error", (err) => {
             console.log(`connect_error due to ${err.message}`);
           });
@@ -306,7 +320,8 @@ document.addEventListener('scroll', function() {
                 let divChild = document.getElementById("send_button");
                 divChild.append(document.createElement("br"));
                 divChild.appendChild(document.createTextNode("Job Sent! Wait for Frames to Load..."));
-                
+                let img_section = document.getElementById("image-display");
+                img_section.style.display = 'block';
                 //jobId = parseInt(jobInput.value, 10);
                 sendJobToServer(jsonData);
                 
@@ -335,8 +350,11 @@ document.addEventListener('scroll', function() {
                 // Handle the string data (e.g., display an error message to the user)
             } else if (response.type === 'blob') {
                 // Handle the blob data (e.g., initiate a download)
-                const blob = new Blob([response.content]);
-                let url = Number.URL.createObjectURL(blob);
+                let byteCharacters = atob(response.content);
+                let byteNumbers = Array.from(byteCharacters, char => char.charCodeAt(0));
+                let byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], {type: 'application/zip'});
+                let url = window.URL.createObjectURL(blob);
             
                 let downloadLink = document.getElementById("downloadLink");
                 let downloadDiv = document.getElementById("output");
@@ -364,9 +382,11 @@ document.addEventListener('scroll', function() {
             if (response.type === 'int') {
                 start_frame = response.start_frame;
                 end_frame = response.end_frame;
+                console.log("got frame range, " + "Valid Frame Range is " +  start_frame + " to " + end_frame);
                 var textNode1 = document.createTextNode("Valid Frame Range is " +  start_frame + " to " + end_frame);
-                let section = document.getElementById('image-display');
+                let section = document.getElementById('frameRange');
                 section.appendChild(textNode1);
+                section.style.display = "block";
             }
         })
         socket.on('post_images', function(response) {

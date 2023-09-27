@@ -9,6 +9,7 @@ import re
 from cvat_listener import CVAT_PATH
 from tool.roar_tools import numpy_to_base64
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
+import base64
 
 app = Flask(__name__)
 parent_folder = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +28,7 @@ OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
 ANN_OUT = os.path.join("output", "annotations_output")
 IMAGES = ["image1.jpg", "image2.jpg", "image3.jpg"]
 TRACKERS = {}
+CLIENTS = {}
 
 current_image_index = 0
 
@@ -178,12 +180,17 @@ def assign_tracker(formData):
     end_frame_idx = main_hub.get_roar_seg_tracker().get_end_frame_idx()
     start_frame_idx = main_hub.get_roar_seg_tracker().get_start_frame_idx()
     TRACKERS[job_id] = tracker_object
+    CLIENTS[request.sid] = job_id
     emit('post_frame_range', {
         'type' : 'int',
         'start_frame' : start_frame_idx,
         'end_frame' : end_frame_idx
     }, room=request.sid)
-        
+@socketio.on('disconnect')
+def handle_disconnect():
+    jobId = CLIENTS.get(request.sid)
+    if jobId is not None:
+        save_tracker(int(jobId))
 @socketio.on('save_job')
 def save_tracker(jobId):
     assert type(jobId) == int
@@ -192,7 +199,8 @@ def save_tracker(jobId):
         if type(main_hub) == MainHub:
             save_main_hub(main_hub)
         TRACKERS.pop(jobId)
-    job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
+        CLIENTS.pop(request.sid)
+    job_folder = os.path.join(OUTPUT_FOLDER, str(jobId))
     annotation_output = os.path.join(job_folder, ANN_OUT)
     remove_job_from_file(CVAT_PATH, jobId)
     zip_file = os.path.join(annotation_output, "annotation.zip")
@@ -200,10 +208,10 @@ def save_tracker(jobId):
         # Convert the file into a blob or a data URL (Base64 encoding) and send it
         with open(zip_file, 'rb') as f:
             file_data = f.read()
-            # You might consider using base64 encoding and then decode it on the client-side
+            b64_encoded_data = base64.b64encode(file_data).decode('utf-8')
             emit('post_annotation', {
                 'type': 'blob', 
-                'content': file_data
+                'content': b64_encoded_data
                 }, room=request.sid)
     else:
         emit('post_annotation', {
