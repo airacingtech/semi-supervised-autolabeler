@@ -1,4 +1,4 @@
- from PIL.ImageOps import colorize, scale
+from PIL.ImageOps import colorize, scale
 import gradio as gr
 import importlib
 import sys
