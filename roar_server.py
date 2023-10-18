@@ -288,6 +288,10 @@ def get_frame(response):
 
 
 if __name__ == "__main__":
+    PORT = os.environ.get("PORT", 5000)
+    HOST = os.environ.get("HOST", "label.roarart.online")
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    socketio.run(app, host="label.roarart.online", port=5000, debug=False)
+
+    print(f"Running on {HOST}:{PORT}")
+    socketio.run(app, host=HOST, port=PORT, debug=False)
