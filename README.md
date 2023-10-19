@@ -1,173 +1,189 @@
-# Segment and Track Anything (SAM-Track)
-**Online Demo:** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1R10N70AJaslzADFqb-a5OihYkllWEVxB?usp=sharing)
-**Technical Report**: [![](https://img.shields.io/badge/Report-arXiv:2305.06558-green)](https://arxiv.org/abs/2305.06558)
+# CVAT Instance Segmentation Tracker
 
-**Tutorial:** [tutorial-v1.5 (Text)](./tutorial/tutorial%20for%20WebUI-1.5-Version.md), [tutorial-v1.0 (Click & Brush)](./tutorial/tutorial%20for%20WebUI-1.0-Version.md)
+<aside>
+☎️ Author: Kevin Chow
 
-<p align="center">
-<img src="./assets/top.gif" width="880">
-</p>
+</aside>
 
-**Segment and Track Anything** is an open-source project that focuses on the segmentation and tracking of any objects in videos, utilizing both automatic and interactive methods. The primary algorithms utilized include the [**SAM** (Segment Anything Models)](https://github.com/facebookresearch/segment-anything) for automatic/interactive key-frame segmentation and the [**DeAOT** (Decoupling features in Associating Objects with Transformers)](https://github.com/yoxu515/aot-benchmark) (NeurIPS2022) for efficient multi-object tracking and propagation. The SAM-Track pipeline enables dynamic and automatic detection and segmentation of new objects by SAM, while DeAOT is responsible for tracking all identified objects.
+<aside>
+📧 contact: chowmein113@berkeley.edu
 
-## :loudspeaker:New Features
-- [2023/5/12] We have authored a technical report for SAM-Track.
-- [2023/5/7] We have added `demo_instseg.ipynb`, which uses Grounding-DINO to detect new objects in the key frames of a video. It can be applied in the fields of smart cities and autonomous driving.
-- [2023/4/29] We have added advanced arguments for AOT-L: `long_term_memory_gap` and `max_len_long_term`.
-   - `long_term_memory_gap` controls the frequency at which the AOT model adds new reference frames to its long-term memory. During mask propagation, AOT matches the current frame with the reference frames stored in the long-term memory. 
-   - Setting the gap value to a proper value helps to obtain better performance. To avoid memory explosion in long videos, we set a `max_len_long_term` value for the long-term memory storage, i.e. when the number of memory frames reaches the `max_len_long_term value`, the oldest memory frame will be discarded and a new frame will be added.
+</aside>
 
-- [2023/4/26] **Interactive WebUI 1.5-Version**: We have added new features based on Interactive WebUI-1.0 Version.
-   - We have added a new form of interactivity—text prompts—to SAMTrack.
-   - From now on, multiple objects that need to be tracked can be interactively added.
-   - Check out [tutorial](./tutorial/tutorial%20for%20WebUI-1.5-Version.md) for Interactive WebUI 1.5-Version. More demos will be released in the next few days.
-- [2023/4/26] **Image-Sequence input**: The WebUI now has a new feature that allows for input of image sequences, which can be used to test video segmentation datasets. Get started with the [tutorial](./tutorial/tutorial%20for%20Image-Sequence%20input.md) for Image-Sequence input. 
-- [2023/4/25] **Online Demo:** You can easily use SAMTrack in [Colab](https://colab.research.google.com/drive/1R10N70AJaslzADFqb-a5OihYkllWEVxB?usp=sharing) for visual tracking tasks.
+# Overview
 
-- [2023/4/23] **Interactive WebUI:** We have introduced a new WebUI that allows interactive user segmentation through strokes and clicks. Feel free to explore and have fun with the [tutorial](./tutorial/tutorial%20for%20WebUI-1.0-Version.md)!
-    - [2023/4/24] **Tutorial V1.0:** Check out our new video tutorials!
-      - YouTube-Link: [Tutorial for Interactively modify single-object mask for first frame of video](https://www.youtube.com/watch?v=DF0iFSsX8KY)、[Tutorial for Interactively add object by click](https://www.youtube.com/watch?v=UJvKPng9_DA)、[Tutorial for Interactively add object by stroke](https://www.youtube.com/watch?v=m1oFavjIaCM).
-      - Bilibili Video Link:[Tutorial for Interactively modify single-object mask for first frame of video](https://www.bilibili.com/video/BV1tM4115791/?spm_id_from=333.999.0.0)、[Tutorial for Interactively add object by click](https://www.bilibili.com/video/BV1Qs4y1A7d1/)、[Tutorial for Interactively add object by stroke](https://www.bilibili.com/video/BV1Lm4y117J4/?spm_id_from=333.999.0.0).
-    - 1.0-Version is a developer version, please feel free to contact us if you encounter any bugs :bug:.
+    OpenCV’s Computer Vision Annotation Tool (https://github.com/opencv/cvat) is an annotation tool that has recently been updated to use Facebook Research’s Segment-Anything-Model (https://github.com/facebookresearch/segment-anything) allows for high quality segmentations to be produced on any given image uploaded into CVAT, including frames of videos, but only allows for single frame annotations. This means that in order to produce segmentation masks to label video data, each frame would need to be done by hand. CVAT only supports bounding box trackers out of the box (no pun intended). Recently there has been a paper and repository published called SAM-Track (https://github.com/z-x-yang/Segment-and-Track-Anything) which can track segmentation masks real-time, which is super fast and accurate.
 
-- [2023/4/17] **SAMTrack**: Automatically segment and track anything in video!
+## Problem
 
-## :fire:Demos
-<div align=center>
+    CVAT allows for team labelling by organizing team structures and roles, and assigning jobs and tasks. It also supports labeling with segmentation masks (i.e. can assign a certain type of mask to be a car or a road) which can be used to produce labeled training data for classification with segmentation masks rather than bounding box methods to precisely classify not just the location of an object, but its shape as well ([Object Detection vs Object Segmentation](https://www.linkedin.com/pulse/object-segmentation-vs-detection-which-one-should-you-ritesh-kanjee/)). 
 
-[![Segment-and-Track-Anything Versatile Demo](https://res.cloudinary.com/marcomontalbano/image/upload/v1681713095/video_to_markdown/images/youtube--UPhtpf1k6HA-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://youtu.be/UPhtpf1k6HA "Segment-and-Track-Anything Versatile Demo")
-</div>
+    The problem is that CVAT does not currently support Segmentation Tracking. We want to track segmented objects throughout a video based on an initial segmentation on any given frame from CVAT. SAM-Track also does not support annotation file imports or labeled segmentation masks. 
 
-This video showcases the segmentation and tracking capabilities of SAM-Track in various scenarios, such as street views, AR, cells, animations, aerial shots, and more.
+Instance Segmentation Tracker solves this problem.
 
-## :calendar:TODO
- - [x] Colab notebook: Completed on April 25th, 2023.
- - [x] 1.0-Version Interactive WebUI: Completed on April 23rd, 2023.
-    - We will create a feature that enables users to interactively modify the mask for the initial video frame according to their needs. The interactive segmentation capabilities of Segment-and-Track-Anything is demonstrated in [Demo8](https://www.youtube.com/watch?v=Xyd54AngvV8&feature=youtu.be) and [Demo9](https://www.youtube.com/watch?v=eZrdna8JkoQ).
-    - Bilibili Video Link: [Demo8](https://www.bilibili.com/video/BV1JL411v7uE/), [Demo9](https://www.bilibili.com/video/BV1Qs4y1w763/).
- - [x] 1.5-Version Interactive WebUI: Completed on April 26th, 2023.
-    - We will develop a function that allows interactive modification of multi-object masks for the first frame of a video. This function will be based on Version 1.0.  YouTube: [Demo4](https://www.youtube.com/watch?v=UFtwFaOfx2I&feature=youtu.be), [Demo5](https://www.youtube.com/watch?v=cK5MPFdJdSY&feature=youtu.be); Bilibili: [Demo4](https://www.bilibili.com/video/BV17X4y127mJ/), [Demo5](https://www.bilibili.com/video/BV1Pz4y1a7mC/)
-    - Furthermore, we plan to include text prompts as an additional form of interaction. YouTube: [Demo1](https://www.youtube.com/watch?v=5oieHqFIJPc&feature=youtu.be), [Demo2](https://www.youtube.com/watch?v=nXfq17X6ohk); Bilibili: [Demo1](https://www.bilibili.com/video/BV1hg4y157yd/?vd_source=fe3b5c0215d05cc44c8eb3d94abae3ca), [Demo2](https://www.bilibili.com/video/BV1RV4y1k7i5/)
- - [ ] 2.x-Version Interactive WebUI
-    - In version 2.x, the segmentation model will offer two options: SAM and SEEM.
-    - We will develop a new function where the fixed-category object detection result can be displayed as a prompt.
-    - We will enable SAM-Track to add and modify objects during tracking. YouTube: [Demo6](https://www.youtube.com/watch?v=l7hXM1a3nEA&feature=youtu.be
-), [Demo7](https://www.youtube.com/watch?v=hPjw28Ul4cw&feature=youtu.be); Bilibili: [Demo6](https://www.bilibili.com/video/BV1nk4y1j7Am), [Demo7](https://www.bilibili.com/video/BV1mk4y1E78s/?vd_source=fe3b5c0215d05cc44c8eb3d94abae3ca)
+### Bounding Box Tracking vs Instance Segmentation Tracking
 
-**Demo1** showcases SAM-Track's ability to take the class of objects as prompt. The user gives the category text 'panda' to enable instance-level segmentation and tracking of all objects belonging to this category.
-<div align=center>
- 
-[![demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1683347297/video_to_markdown/images/youtube--5oieHqFIJPc-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=5oieHqFIJPc&feature=youtu.be "demo1")
-</div>
+![Untitled](images/Untitled.png)
 
-**Demo2** showcases SAM-Track's ability to take the text description as prompt. SAM-Track could segment and track target objects given the input that 'panda on the far left'.
-<div align=center>
- 
-[![demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1683347643/video_to_markdown/images/youtube--nXfq17X6ohk-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=nXfq17X6ohk "demo1")
-</div>
+![Untitled](images/Untitled%201.png)
 
+# Description
 
-**Demo3** showcases SAM-Track's ability to track numerous objects at the same time. SAM-Track is capable of automatically detecting newly appearing objects.
-<div align=center>
- 
-[![demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1683347961/video_to_markdown/images/youtube--jMqFMq0tRP0-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=jMqFMq0tRP0 "demo1")
-</div>
+<aside>
+📧 The Instance Segmentation Tracker (IST), built off of (https://github.com/z-x-yang/Segment-and-Track-Anything), allows for seamless and efficient Labeled Instance Segmentation Tracking.
 
-**Demo4** showcases SAM-Track's ability to take multiple modes of interactions as prompt. The user specified human and skateboard with click and brushstroke, respectively.  
-<div align=center>
- 
-[![demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1683348115/video_to_markdown/images/youtube--UFtwFaOfx2I-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=UFtwFaOfx2I&feature=youtu.be "demo1")
-</div>
+</aside>
 
+Without a segmentation tracker, labeling video data with segmentation masks in CVAT would be manually annotated by hand:
 
-**Demo5** showcases SAM-Track's ability to refine the results of segment-everything. The user merges the tram as a whole with a single click.
-<div align=center>
- 
-[![demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1683348276/video_to_markdown/images/youtube--cK5MPFdJdSY-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=cK5MPFdJdSY&feature=youtu.be "demo1")
-</div>
+## Labeling Segmentations by Hand:
 
-**Demo6** showcases SAM-Track's ability to add new objects during tracking. The user annotates another car by rolling back to an intermediate frame.
-<div align=center>
- 
-[![demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1683348411/video_to_markdown/images/youtube--l7hXM1a3nEA-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=l7hXM1a3nEA "demo1")
-</div>
+[https://drive.google.com/file/d/1-nsn_bkyB4lBM18ocQktFenGFsRY3spl/view?usp=sharing](https://drive.google.com/file/d/1-nsn_bkyB4lBM18ocQktFenGFsRY3spl/view?usp=sharing)
 
-**Demo7** showcases SAM-Track's ability to refine the prediction during tracking. This feature is highly advantageous for segmentation and tracking under complex environments.
-<div align=center>
+## Instance Segmentation Tracker:
 
-[![demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1683348621/video_to_markdown/images/youtube--hPjw28Ul4cw-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=hPjw28Ul4cw&feature=youtu.be "demo1")
-</div>
+[https://drive.google.com/file/d/1-og4lr-fyUG6F7TBuRk3fpkt_B11YbXw/view?usp=sharing](https://drive.google.com/file/d/1-og4lr-fyUG6F7TBuRk3fpkt_B11YbXw/view?usp=sharing)
 
-**Demo8** showcases SAM-Track's ability to interactively segment and track individual objects.  The user specified that SAM-Track tracked a man playing street basketball.
-<div align=center>
+# How to Use:
 
-[![Interactive Segment-and-Track-Anything Demo1](https://res.cloudinary.com/marcomontalbano/image/upload/v1681712022/video_to_markdown/images/youtube--Xyd54AngvV8-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=Xyd54AngvV8 "Interactive Segment-and-Track-Anything Demo1")
-</div>
+# Installation
 
-**Demo9** showcases SAM-Track's ability to interactively add specified objects for tracking.The user customized the addition of objects to be tracked on top of the segmentation of everything in the scene using SAM-Track.
-<div align=center>
- 
-[![Interactive Segment-and-Track-Anything Demo2](https://res.cloudinary.com/marcomontalbano/image/upload/v1681712071/video_to_markdown/images/youtube--eZrdna8JkoQ-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=eZrdna8JkoQ "Interactive Segment-and-Track-Anything Demo2")
-</div>
-
-## :computer:Getting Started
-### :bookmark_tabs:Requirements
-
-The [Segment-Anything](https://github.com/facebookresearch/segment-anything) repository has been cloned and renamed as sam, and the [aot-benchmark](https://github.com/yoxu515/aot-benchmark) repository has been cloned and renamed as aot.
-
-Please check the dependency requirements in [SAM](https://github.com/facebookresearch/segment-anything) and [DeAOT](https://github.com/yoxu515/aot-benchmark).
-
-The implementation is tested under python 3.9, as well as pytorch 1.10 and torchvision 0.11. **We recommend equivalent or higher pytorch version**.
-
-Use the `install.sh` to install the necessary libs for SAM-Track
+```bash
+cd /your/desired/parent/directory
+git clone git@github.com:chowmein113/roar-seg-and-track-anything.git
+cd roar-seg-and-track-anything/
+conda env create -f updated_environment.yml
+conda activate SAMT
+pip install -r requirements.txt
 ```
+
+Follow requirements and model preparation via original SAMT github if you want SAM and Grounding Dino checkpoints:
+
+[GitHub - z-x-yang/Segment-and-Track-Anything: An open-source project dedicated to tracking and segmenting any objects in videos, either automatically or interactively. The primary algorithms utilized include the Segment Anything Model (SAM) for key-frame segmentation and Associating Objects with Transformers (AOT) for efficient tracking and propagation purposes.](https://github.com/z-x-yang/Segment-and-Track-Anything#bookmark_tabsrequirements)
+
+only need to run:
+
+```bash
 bash script/install.sh
-```
-
-### :star:Model Preparation
-Download SAM model to ckpt, the default model is SAM-VIT-B ([sam_vit_b_01ec64.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth)).
-
-Download DeAOT/AOT model to ckpt, the default model is R50-DeAOT-L ([R50_DeAOTL_PRE_YTB_DAV.pth](https://drive.google.com/file/d/1QoChMkTVxdYZ_eBlZhK2acq9KMQZccPJ/view)).
-
-Download Grounding-Dino model to ckpt, the default model is GroundingDINO-T ([groundingdino_swint_ogc](https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swint_ogc.pth)).
-
-You can download the default weights using the command line as shown below.
-```
 bash script/download_ckpt.sh
 ```
 
-### :heart:Run Demo
-- The video to be processed can be put in ./assets. 
-- Then run **demo.ipynb** step by step to generate results. 
-- The results will be saved as masks for each frame and a gif file for visualization.
+# To run
 
-The arguments for SAM-Track, DeAOT and SAM can be manually modified in model_args.py for purpose of using other models or controling the behavior of each model.
+### Start Conda Environment
 
-### :muscle:WebUI App
-Our user-friendly visual interface allows you to easily obtain the results of your experiments. Simply initiate it using the command line.
+```bash
+cd "path to repository"
+conda activate SAMT
 
 ```
-python app.py
+
+## GUI:
+
+```bash
+python3 roar_server.py
 ```
-Users can upload the video directly on the UI and use SegTracker to automatically/interactively track objects within that video. We use a video of a man playing basketball as an example.
 
-![Interactive WebUI](./assets/interactive_webui.jpg)
+<aside>
+💡 If locally hosted, go to https://localhost:5000, use the URL roar_server is hosted on otherwise
 
-SegTracker-Parameters:
- - **aot_model**: used to select which version of DeAOT/AOT to use for tracking and propagation.
- - **sam_gap**: used to control how often SAM is used to add newly appearing objects at specified frame intervals. Increase to decrease the frequency of discovering new targets, but significantly improve speed of inference.
- - **points_per_side**: used to control the number of points per side used for generating masks by sampling a grid over the image. Increasing the size enhances the ability to detect small objects, but larger targets may be segmented into finer granularity.
- - **max_obj_num**: used to limit the maximum number of objects that SAM-Track can detect and track. A larger number of objects necessitates a greater utilization of memory, with approximately 16GB of memory capable of processing a maximum of 255 objects.
+</aside>
 
-Usage: To see the details, please refer to the [tutorial for 1.0-Version WebUI](./tutorial/tutorial%20for%20WebUI-1.0-Version.md).
+<aside>
+💡 Change global variable, UPLOADS_FOLDER in roar_server.py to path where downloaded annotation files are desired to be placed
 
-### :full_moon_with_face:Credits
-Licenses for borrowed code can be found in `licenses.md` file.
+</aside>
 
-* DeAOT/AOT - [https://github.com/yoxu515/aot-benchmark](https://github.com/yoxu515/aot-benchmark)
-* SAM - [https://github.com/facebookresearch/segment-anything](https://github.com/facebookresearch/segment-anything)
-* Gradio (for building WebUI) - [https://github.com/gradio-app/gradio](https://github.com/gradio-app/gradio)
-* Grounding-Dino - [https://github.com/yamy-cheng/GroundingDINO](https://github.com/yamy-cheng/GroundingDINO)
+### Starter Page
 
-### :school:About us
-Thank you for your interest in this project. The project is supervised by the ReLER Lab at Zhejiang University’s College of Computer Science and Technology. ReLER was established by Yang Yi, a Qiu Shi Distinguished Professor at Zhejiang University. Our dedicated team of contributors includes [Yangming Cheng](https://github.com/yamy-cheng), [Yuanyou Xu](https://github.com/yoxu515), [Liulei Li](https://github.com/lingorX), Xiaodi Li, [Zongxin Yang](https://z-x-yang.github.io/), [Wenguan Wang](https://sites.google.com/view/wenguanwang) and [Yi Yang](https://scholar.google.com/citations?user=RMSuNFwAAAAJ&hl=en).
+![Untitled](images/Untitled%202.png)
+
+There are a few options here:
+
+1. **Server Configuration**
+    1. If hosting server locally, or a different URL than the URL provided, use server configuration to tell the website where the server is located.
+2. **Job Configuration**
+    1. This is the main panel to track instance segmentation frames
+    2. **Job**
+        1. **Initial Segmentation**
+            1. first tracking job done which should contain images as well as the annotations file of desired video
+        2. **Re-segmentation**
+            1. Any annotation fixes sent back to tracker with only new annotation file
+            2. if this option is selected, a text box asking for relabeled frames in Comma-Separated Value format will appear
+    3. **Update Panel**
+        1. If using CVAT, will read off an update panel for recently exported annotations
+    4. **Threads**
+        1. If multiple different frames are annotated, other than the first frame, can parallel process the job and user can specify amount of max thread workers
+        2. Defaults to 1 if no input
+    5. **Job**
+        1. The desired Job ID to track
+    6. **TRACKING**
+        1. **Frame-by-Frame Tracking**
+            1. Will open panel for tracking through frames by manual input of user
+        2. **Automatic Track**
+            1. Will track through entire video automatically and export annotation file for user to download under **Form Data Output**
+    7. Selecting either option will bring this metadata option up to verify
+        1. Simply click yes and watch the magic happen
+            
+            ![Untitled](images/Untitled%203.png)
+            
+
+### Frame-by-Frame Tracking:
+
+- A visual version of the tracker, can see what the tracker is tracking at each frame and quickly export to CVAT to re-segment once object tracking diverges
+- PROS:
+    - can see each frame the tracker is tracking
+    - can quickly export annotations once tracking diverges unlike automatic tracking which will track all frames given even if tracking diverges
+        - automatic tracking will make annotations that diverge once tracking diverges, usually past a key frame
+- CONS
+    - Automatic tracking can take advantage of parallel processing if given multiple key frame annotations, Frame-by-Frame is linear and will generate new frames only if specified
+- **HOW TO USE:**
+    - once frame-by-frame tracking is clicked, will show a valid frame range user can enter.
+    - 
+    
+    ![frame-by-frame_track.png](images/frame-by-frame_track.png)
+    
+    ![track_controls.png](images/track_controls.png)
+    
+    - Type in a given frame in the valid range and press enter
+    - can use forward and backward to iterate current frame by +1/-1 respectively
+    - 
+    
+    ![track.png](images/track.png)
+    
+    ### Demonstration:
+    
+    [https://drive.google.com/file/d/1-ws2dLptlP1Mulw0Jil-I5BbqEayavxC/view?usp=share_link](https://drive.google.com/file/d/1-ws2dLptlP1Mulw0Jil-I5BbqEayavxC/view?usp=share_link)
+    
+
+## Command Line Interface
+
+To use CLI, run:
+
+```python
+python3 roar_main.py
+```
+
+<aside>
+💡 Place file in specified DOWNLOADS_PATH global variable in roar_main.py, change this depending on your set up
+
+</aside>
+
+follow instructions displayed on screen:
+
+### Key Terms:
+
+- Re-Segmentation
+    - If this is the first segmentation for a given annotation task, select no
+    - if yes is selected,
+        - you will be asked to specify which frames have been reannotated in CSV format
+- Job ID
+    - The number of the job and zip file, zip file should be named, {JOB ID}.zip
+- Reuse Output Annotation
+    - if you want to reuse the annotation output from a previous tracking run for this specific job, click yes
+    - useful if you want to re-track with the frame right before tracking diverges and you don’t want to reannotate
+- multithreading
+    - If given multiple annotated key frames, can use multithreading to parallel process tracking on Cuda device
+- Delete zip
+    - if you want an automatic clean up and get rid of the zip file you give to the tracker, use this option
