@@ -158,22 +158,31 @@
     <pre id="content"></pre>
 </div>
 <form id="userForm" onsubmit="return onSubmit()" action="/roar_webpage.html" method="POST", enctype="multipart/form-data">
+    
     Threads: <input id="threads" type="number" name="threads"><br><br>
     Job: 
     <select name="jobType" id="segmentationDropdown" onchange="updateForm()">
         <option value="initial segmentation">Initial Segmentation</option>
         <option value="resegmentation">Resegmentation</option>
     </select><br><br>
-    Job ID: <input id="job_id" yype="number" name="jobId" placeholder="Input Job ID here"><br><br>
+    Job ID: <input id="job_id" type="number" name="jobId" placeholder="Input Job ID here">
+    <div id="advOptHead">Toggle Advanced Options</div>
+    <div class="toggle-button" onclick="toggleElement(this)">
+        <div class="toggle-circle"></div>
+    </div>
+    <div id="advOptions" style="display:none;">
+    
     Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox" name="reuseAnnotation"><br><br>
     Delete job zip on server: <input id="delete_zip" type="checkbox" name="delete_zip"><br><br>
+    Upload your job.zip: <input type="file" name="file" id="jobFile" style="display:none;"><br><br>
+    </div>
     <div id="framesDiv" style="display:none;">
         List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text" name="frames" placeholder="ex: 7,9,10 (no spaces)"><br><br>
     </div>
     
-    Upload your job.zip: <input type="file" name="file" id="jobFile"><br><br>
+    
     <button type="button" id="save_config" className=""front onClick="frameTrack()"> 
-        frame-by-frame tracking
+        Frame-by-Frame tracking
     </button>
 
     <button type="button" id="submit_user_form" className=""front onClick="onSubmit()">
@@ -420,6 +429,15 @@ document.addEventListener('scroll', function() {
             if (!isNaN(currentFrame)) {
                 frameInput.value = currentFrame + valueChange;
                 sendFrameToServer();
+            }
+        }
+        function toggleElement(element) {
+            element.classList.toggle('toggle-on');
+            let options = document.getElementById("advOptions");
+            if (options.style.display == "none") {
+                options.style.display = "block";
+            } else {
+                options.style.display = "none";
             }
         }
 </script>

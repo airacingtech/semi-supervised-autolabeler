@@ -100,6 +100,16 @@ form button {
     cursor: pointer;
     transition: 0.3s;
 }
+#backButton {
+    padding: 1em;
+    border: none;
+    background-color: #9fc7df; /* Pastel blue */
+    color: #FFFFFF;
+    font-weight: bold;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+}
 
 form button:hover {
     background-color: #8AAFD5;
@@ -115,7 +125,7 @@ form button:hover {
 }
 
 /* Styling the output */
-#output {
+.output-class {
     background-color: #E7F0C3; /* Pastel green */
     padding: 1em;
     border-radius: 20px;
@@ -123,7 +133,17 @@ form button:hover {
     width: 80%; /* Control the width */
     align-self: center; /* centering horizontally */
 }
-
+#image-display {
+    background-color: #4C4C4C;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1); /* subtle shadow for depth */
+    align-self: center;
+    border-radius: 15px;
+    align-self: center;
+    text-align: center;
+    width: 250px;
+    height: 100px;
+}
 /* Including some global rounded styles */
 a, button, input, select, textarea {
     border-radius: 10px;
@@ -135,8 +155,7 @@ a, button, input, select, textarea {
     display: none;
 }
 
-.server-config-section, 
-.image-display-section, 
+.server-config-section,  
 .job-config-section, 
 .form-output-section {
     margin: 2em 0;
