@@ -194,3 +194,6 @@ follow instructions displayed on screen:
     - If given multiple annotated key frames, can use multithreading to parallel process tracking on Cuda device
 - Delete zip
     - if you want an automatic clean up and get rid of the zip file you give to the tracker, use this option
+ 
+### Credits
+* SAM-Track - [https://github.com/z-x-yang/Segment-and-Track-Anything](https://github.com/z-x-yang/Segment-and-Track-Anything
