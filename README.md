@@ -12,13 +12,13 @@
 
 # Overview
 
-    OpenCV’s Computer Vision Annotation Tool (https://github.com/opencv/cvat) is an annotation tool that has recently been updated to use Facebook Research’s Segment-Anything-Model (https://github.com/facebookresearch/segment-anything) allows for high quality segmentations to be produced on any given image uploaded into CVAT, including frames of videos, but only allows for single frame annotations. This means that in order to produce segmentation masks to label video data, each frame would need to be done by hand. CVAT only supports bounding box trackers out of the box (no pun intended). Recently there has been a paper and repository published called SAM-Track (https://github.com/z-x-yang/Segment-and-Track-Anything) which can track segmentation masks real-time, which is super fast and accurate.
+   OpenCV’s Computer Vision Annotation Tool (https://github.com/opencv/cvat) is an annotation tool that has recently been updated to use Facebook Research’s Segment-Anything-Model (https://github.com/facebookresearch/segment-anything) allows for high quality segmentations to be produced on any given image uploaded into CVAT, including frames of videos, but only allows for single frame annotations. In order to produce segmentation masks to label video data, **each frame** would need to be **done by hand**. CVAT only supports bounding box trackers out of the box (no pun intended). Recently there has been a paper and repository published called SAM-Track (https://github.com/z-x-yang/Segment-and-Track-Anything) which can track segmentation masks real-time, which is super fast and accurate, to extend Instance Segmentation from images to videos!
 
 ## Problem
 
-    CVAT allows for team labelling by organizing team structures and roles, and assigning jobs and tasks. It also supports labeling with segmentation masks (i.e. can assign a certain type of mask to be a car or a road) which can be used to produce labeled training data for classification with segmentation masks rather than bounding box methods to precisely classify not just the location of an object, but its shape as well ([Object Detection vs Object Segmentation](https://www.linkedin.com/pulse/object-segmentation-vs-detection-which-one-should-you-ritesh-kanjee/)). 
+   CVAT allows for team labelling by organizing team structures and roles, and assigning jobs and tasks. It also supports labeling with segmentation masks (i.e. can assign a certain type of mask to be a car or a road) which can be used to produce labeled training data for object detection with segmentation masks rather than bounding box methods to predict not just the location and label of an object, but its shape as well ([Object Detection vs Object Segmentation](https://www.linkedin.com/pulse/object-segmentation-vs-detection-which-one-should-you-ritesh-kanjee/)). 
 
-    The problem is that CVAT does not currently support Segmentation Tracking. We want to track segmented objects throughout a video based on an initial segmentation on any given frame from CVAT. SAM-Track also does not support annotation file imports or labeled segmentation masks. 
+   The problem is that CVAT does not currently support Segmentation Tracking. We want to track segmented objects throughout a video based on an initial segmentation on any given frame from CVAT. SAM-Track also does not support annotation file imports or labeled segmentation masks. 
 
 Instance Segmentation Tracker solves this problem.
 
@@ -26,7 +26,9 @@ Instance Segmentation Tracker solves this problem.
 
 ![Untitled](images/Untitled.png)
 
-![Untitled](images/Untitled%201.png)
+![Untitled](images/instance_seg.webp)
+<!-- <img src="images/Untitled%201.png" alt="ALT_TEXT_FOR_THE_IMAGE" width="800" height="500"> -->
+
 
 # Description
 
@@ -38,12 +40,14 @@ Instance Segmentation Tracker solves this problem.
 Without a segmentation tracker, labeling video data with segmentation masks in CVAT would be manually annotated by hand:
 
 ## Labeling Segmentations by Hand:
+https://drive.google.com/file/d/10HU_1L8nZ_RFkUSxEsqzPgcj78Mm72Mv/view?usp=sharing
 
-[https://drive.google.com/file/d/1-nsn_bkyB4lBM18ocQktFenGFsRY3spl/view?usp=sharing](https://drive.google.com/file/d/1-nsn_bkyB4lBM18ocQktFenGFsRY3spl/view?usp=sharing)
 
 ## Instance Segmentation Tracker:
 
-[https://drive.google.com/file/d/1-og4lr-fyUG6F7TBuRk3fpkt_B11YbXw/view?usp=sharing](https://drive.google.com/file/d/1-og4lr-fyUG6F7TBuRk3fpkt_B11YbXw/view?usp=sharing)
+https://drive.google.com/file/d/10MWbPKJvfWumIxaijZ7cUvezBtmqjI_2/view?usp=sharing
+
+
 
 # How to Use:
 
@@ -140,7 +144,7 @@ There are a few options here:
     - Automatic tracking can take advantage of parallel processing if given multiple key frame annotations, Frame-by-Frame is linear and will generate new frames only if specified
 - **HOW TO USE:**
     - once frame-by-frame tracking is clicked, will show a valid frame range user can enter.
-    - 
+    
     
     ![frame-by-frame_track.png](images/frame-by-frame_track.png)
     
@@ -148,7 +152,7 @@ There are a few options here:
     
     - Type in a given frame in the valid range and press enter
     - can use forward and backward to iterate current frame by +1/-1 respectively
-    - 
+    
     
     ![track.png](images/track.png)
     
