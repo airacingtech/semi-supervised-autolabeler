@@ -40,12 +40,14 @@ Instance Segmentation Tracker solves this problem.
 Without a segmentation tracker, labeling video data with segmentation masks in CVAT would be manually annotated by hand:
 
 ## Labeling Segmentations by Hand:
-https://drive.google.com/file/d/10HU_1L8nZ_RFkUSxEsqzPgcj78Mm72Mv/view?usp=sharing
+
+https://github.com/airacingtech/roar-seg-and-track-anything/assets/83838942/87ed37ac-b8cf-4baa-8928-e24879cabb88
 
 
 ## Instance Segmentation Tracker:
 
-https://drive.google.com/file/d/10MWbPKJvfWumIxaijZ7cUvezBtmqjI_2/view?usp=sharing
+https://github.com/airacingtech/roar-seg-and-track-anything/assets/83838942/7431caa6-2c41-4dc6-b89c-4fd6d793c607
+
 
 
 
@@ -157,8 +159,9 @@ There are a few options here:
     ![track.png](images/track.png)
     
     ### Demonstration:
-    
-    [https://drive.google.com/file/d/1-ws2dLptlP1Mulw0Jil-I5BbqEayavxC/view?usp=share_link](https://drive.google.com/file/d/1-ws2dLptlP1Mulw0Jil-I5BbqEayavxC/view?usp=share_link)
+    https://github.com/airacingtech/roar-seg-and-track-anything/assets/83838942/d4078540-2677-41d6-9b75-ef6466563bfc
+
+
     
 
 ## Command Line Interface
