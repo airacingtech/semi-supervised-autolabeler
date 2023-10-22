@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
     <title>ROAR Labeling - Segment and Track</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='js/roar_labeler_form.js') }}"></script>
@@ -12,67 +13,82 @@
 
 <body>
 
-<section class="server-config-section"><h3 id="server_conf">Server Configuration</h3><br>
-<form>
-    <input type="text" id="serverAddress" placeholder="Enter Server Address">
-    <button type="button" onclick="configureServer()">Configure</button>
-</form>
+    <section class="server-config-section">
+        <h3 id="server_conf">Server Configuration</h3><br>
+        <form>
+            <input type="text" id="serverAddress" placeholder="Enter Server Address">
+            <button type="button" onclick="configureServer()">Configure</button>
+        </form>
 
-</section>
-<br/>
-<section class="image-display-section" id="image-display" style="display:none;"><h3>Image Display & Controls</h3>
-    
-<img id="displayImage1" src="{{ image_url }}" width="auto" alt="Image Viewer">
-<img id="displayImage2" src="{{ image_url }}" width="auto" alt="Image Viewer">
-<br>
-<button onclick="backward()" id="backButton">Backward</button>
-<input type="number" id="frameInput" placeholder="Input frame number here">
-<button onclick="forward()" id="forwardButton">Forward</button>
-<br><br>
-<button onclick="saveJob()" id="saveButton">Save</button>
-</section>
-<br/>
-<section id="frameRange" style="display:none;"></section> <br/>
-<section class="job-config-section"><h3 id="jobformtitle">Job Configuration</h3>
-<div id="sidePanel">
-    <h3>Update Panel</h3>
-    <pre id="content"></pre>
-</div>
-<form id="userForm" onsubmit="return onSubmit()" action="/roar_webpage.html" method="POST", enctype="multipart/form-data">
-    Threads: <input id="threads" type="number" name="threads"><br><br>
-    Job: 
-    <select name="jobType" id="segmentationDropdown" onchange="updateForm()">
-        <option value="initial segmentation">Initial Segmentation</option>
-        <option value="resegmentation">Resegmentation</option>
-    </select><br><br>
-    Job ID: <input id="job_id" yype="number" name="jobId" placeholder="Input Job ID here"><br><br>
-    Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox" name="reuseAnnotation"><br><br>
-    Delete job zip on server: <input id="delete_zip" type="checkbox" name="delete_zip"><br><br>
-    <div id="framesDiv" style="display:none;">
-        List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text" name="frames" placeholder="ex: 7,9,10 (no spaces)"><br><br>
-    </div>
-    
-    Upload your job.zip: <input type="file" name="file" id="jobFile"><br><br>
-    <button type="button" id="save_config" className=""front onClick="frameTrack()"> 
-        frame-by-frame tracking
-    </button>
+    </section>
+    <br />
+    <section class="image-display-section" id="image-display" style="display:none;">
+        <h3>Image Display & Controls</h3>
 
-    <button type="button" id="submit_user_form" className=""front onClick="onSubmit()">
-        Automatic Track
-    </button>
-</form>
+        <img id="displayImage1" src="{{ image_url }}" width="auto" alt="Image Viewer">
+        <img id="displayImage2" src="{{ image_url }}" width="auto" alt="Image Viewer">
+        <br>
+        <button onclick="backward()" id="backButton">Backward</button>
+        <input type="number" id="frameInput" placeholder="Input frame number here">
+        <button onclick="forward()" id="forwardButton">Forward</button>
+        <br><br>
+        <button onclick="saveJob()" id="saveButton">Save</button>
+    </section>
+    <br />
+    <section id="frameRange" style="display:none;"></section> <br />
+    <section class="job-config-section">
+        <h3 id="jobformtitle">Job Configuration</h3>
+        <div id="sidePanel">
+            <h3>Update Panel</h3>
+            <pre id="content"></pre>
+        </div>
+        <form id="userForm" onsubmit="return onSubmit()" action="/roar_webpage.html" method="POST" ,
+            enctype="multipart/form-data">
+            Threads: <input id="threads" type="number" name="threads"><br><br>
+            Job:
+            <select name="jobType" id="segmentationDropdown" onchange="updateForm()">
+                <option value="initial segmentation">Initial Segmentation</option>
+                <option value="resegmentation">Resegmentation</option>
+            </select><br><br>
+            Job ID: <input id="job_id" yype="number" name="jobId" placeholder="Input Job ID here"><br><br>
+            Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox" name="reuseAnnotation"><br><br>
+            Delete job zip on server: <input id="delete_zip" type="checkbox" name="delete_zip"><br><br>
+            <div id="framesDiv" style="display:none;">
+                List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text" name="frames"
+                    placeholder="ex: 7,9,10 (no spaces)"><br><br>
+            </div>
 
-</section><section class="form-output-section"><h3>Form Data Output</h3>
-<div id="output" class="output-class">
-    <a class="download-link" id="download" style="display: none;">Download File</a>
-</div>
-<br><br>
-<div class="download-section"><div id="downloadDiv" style="display:none;">
-    <a class="download-link" id="downloadLink" style="display: none;">Download File</a>
-</div>
+            Upload your job.zip: <input type="file" name="file" id="jobFile"><br><br>
+            <button type="button" id="save_config" className="" front onClick="frameTrack()">
+                frame-by-frame tracking
+            </button>
+
+            <button type="button" id="submit_user_form" className="" front onClick="onSubmit()">
+                Automatic Track
+            </button>
+        </form>
+
+    </section>
+    <section class="form-output-section">
+        <h3>Form Data Output</h3>
+        <div id="output" class="output-class">
+            <a class="download-link" id="download" style="display: none;">Download File</a>
+        </div>
+        <br><br>
+
+        <div class="download-section">
+            <div id="downloadDiv" style="display:none;">
+                <a class="download-link" id="downloadLink" target="_blank">Download File</a>
+            </div>
+        </div>
+
+    </section>
+
 </body>
 
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/roar_webpage_centered_styled.css') }}" type="text/css" />
+<link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/roar_webpage_centered_styled.css') }}"
+    type="text/css" />
+
 </html>

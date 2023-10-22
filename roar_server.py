@@ -1,6 +1,9 @@
 import eventlet
-
 eventlet.monkey_patch()
+
+from dotenv import load_dotenv
+load_dotenv()
+
 import base64
 import os
 import os.path as osp
@@ -15,17 +18,18 @@ from roar_main import MainHub, arg_main, create_main_hub, save_main_hub
 from tool.roar_tools import numpy_to_base64
 from flask_celery import make_celery
 
+PORT = os.environ.get("PORT", 5000)
+HOST = os.environ.get("HOST", "label.roarart.online")
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/home/roar-apex/cvat/downloads")
+
 app = Flask(__name__)
 parent_folder = os.path.dirname(os.path.abspath(__file__))
+
 keypath = osp.join(parent_folder, "agent.key")
 secret_key = "no key found"
 with open(keypath, "r") as f:
     secret_key = f.read()
 app.config["SECRET_KEY"] = secret_key  # Change this to a random and secure value
-socketio = SocketIO(app, cors_allowed_origins="https://label.roarart.online:5000")
-cors = CORS(app)
-app.config["CORS_HEADERS"] = "Content-Type"
-UPLOAD_FOLDER = "/home/roar-apex/cvat/downloads"
 
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
 ANN_OUT = os.path.join("output", "annotations_output")
@@ -37,11 +41,14 @@ current_image_index = 0
 
 
 app.config.update(
-    CELERY_BROKER_URL = "amqp://localhost//",
-    CELERY_RESULT_BACKEND = "rpc://"
-)
-socketio = SocketIO(app, message_queue='amqp://')
+    CELERY_TASK_SERIALIZER = 'json',
+    CELERY_RESULT_SERIALIZER = 'json',
+    CELERY_ACCEPT_CONTENT=['json'],
+    CELERY_ENABLE_UTC = True)
+socketio = SocketIO(app, message_queue='amqp://', cors_allowed_origins=f"http://{HOST}:{PORT}")
 celery = make_celery(app)
+cors = CORS(app, expose_headers=["Content-Disposition"])
+app.config["CORS_HEADERS"] = "Content-Type"
 
 
 def remove_job_from_file(filepath, job_id):
@@ -59,6 +66,15 @@ def index():
     return render_template(
         "roar_webpage_updated.html", image_url=f"/uploads/{IMAGES[current_image_index]}"
     )
+
+@app.route("/celery-status")
+def celery_status():
+    inspection = celery.control.inspect()
+    scheduled = inspection.scheduled()
+    active = inspection.active()
+    reserved = inspection.reserved()
+    return jsonify({'active': active, 'scheduled': scheduled, 'reserved':reserved})
+
 
 
 @app.route("/upload", methods=["POST"])
@@ -80,7 +96,6 @@ def upload_file():
         else:
             threads = 1
         reseg_bool = not (r["jobType"] == "initial segmentation")
-        # on_pattern = r'([O|o][n|N])'
         reuse_annotation_output = bool(r.get("reuseAnnotation"))
         delete_zip = bool(r.get("delete_zip"))
         frames = []
@@ -92,8 +107,6 @@ def upload_file():
                 else []
             )
             frames = [int(frame) for frame in frames]
-        # if not request.files.get('file') and not reuse_annotation_output and reseg_bool:
-        #     return 'No file part', 400
         else:
             file = request.files.get("file")
             if file is None or file.filename == "":
@@ -101,10 +114,7 @@ def upload_file():
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 if not os.path.exists(UPLOAD_FOLDER):
                     return "Specified UPLOAD_FOLDER in server does not exist", 400
-                # file.save(filepath)
 
-            # elif file.filename == '' and not reuse_annotation_output:
-            #     return 'No selected file', 400
             else:
                 filename = str(file.filename)
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -112,17 +122,17 @@ def upload_file():
                     return "Specified UPLOAD_FOLDER in server does not exist", 400
                 file.save(filepath)
 
-        do_arg_main.delay(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip)
-        return "Started job", 200
+        task = do_arg_main.delay(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip)
+        return jsonify({"message": "Started task", "id": task.id })
 
     except Exception as e:
         return f"Error while uploading with error: {e}", 400
 
 @celery.task(name="upload")
 def do_arg_main(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip):
-    print("inside do_arg_main")
-    socketio = SocketIO(message_queue="amqp://")
-    arg_main(
+    # try:
+    print("in celery task")
+    out = arg_main(
         job_id=job_id,
         reseg_bool=reseg_bool,
         reuse_output=reuse_annotation_output,
@@ -130,19 +140,25 @@ def do_arg_main(job_id, reseg_bool, reuse_annotation_output, threads, frames, de
         reseg_frames=frames,
         delete_zip=delete_zip,
     )
-    job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
+    print(out)
+
+    print("after do_arg_main")
+    if job_id in TRACKERS:
+        TRACKERS.pop(job_id)
+
+    socketio.emit("upload_response", {"status": "success", "job_id": job_id})
+    # except Exception as e:
+        # socketio.emit("upload_response", {"status": "fail", "job_id": job_id})
+    return job_id
+
+
+@app.route("/download-annotation/<job_id>")
+def download_annotation(job_id):
+    job_folder = os.path.join(OUTPUT_FOLDER, job_id)
     annotation_output = os.path.join(job_folder, ANN_OUT)
     remove_job_from_file(CVAT_PATH, job_id)
-    TRACKERS.pop(job_id)
-    zip_file = os.path.join(annotation_output, "annotation.zip")
-    output = (
-        send_from_directory(annotation_output, "annotation.zip", as_attachment=True)
-        if os.path.exists(zip_file)
-        else "No File"
-    )
-    socketio.emit("upload_response", {"output": output})
-    # emit("upload_response", {"output": output})
 
+    return send_from_directory(annotation_output, "annotation.zip", as_attachment=True, download_name=f"annotation-{job_id}.zip")
     
 
 @app.route("/segment", methods=["POST"])
@@ -178,57 +194,57 @@ def get_frame_for_client(main_hub, frame: int = 0):
     return img, img_mask
 
 
-# #socketio
 @socketio.on("frame_track_start")
 def assign_tracker(formData):
-    # file_test = request.files.get('file')
-    # r = request.get_json(force=True)
     r = formData
     print(f"r: {r}")
-    job_id = int(r.get("jobId"))
+    try: 
+        job_id = int(r.get("jobId"))
 
-    if type(r.get("threads")) is str or type(r.get("threads")) is int:
-        threads = r["threads"]
-        if threads == "":
-            threads = 1
+        if type(r.get("threads")) is str or type(r.get("threads")) is int:
+            threads = r["threads"]
+            if threads == "":
+                threads = 1
+            else:
+                threads = int(r["threads"])
         else:
-            threads = int(r["threads"])
-    else:
-        threads = 1
-    reseg_bool = not (r["jobType"] == "initial segmentation")
-    # on_pattern = r'([O|o][n|N])'
-    reuse_annotation_output = bool(r.get("reuseAnnotation"))
-    delete_zip = bool(r.get("delete_zip"))
-    frames = []
+            threads = 1
+        reseg_bool = not (r["jobType"] == "initial segmentation")
+        reuse_annotation_output = bool(r.get("reuseAnnotation"))
+        delete_zip = bool(r.get("delete_zip"))
+        frames = []
 
-    if reseg_bool:
-        frames = (
-            r["frames"].split(",")
-            if r.get("frames") is not None and r.get("frames") != ""
-            else []
+        if reseg_bool:
+            frames = (
+                r["frames"].split(",")
+                if r.get("frames") is not None and r.get("frames") != ""
+                else []
+            )
+            frames = [int(frame) for frame in frames]
+
+        if TRACKERS.get(job_id) is not None:
+            return
+
+        tracker_object = create_main_hub(
+            job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output
         )
-        frames = [int(frame) for frame in frames]
+        main_hub = tracker_object
+        main_hub.set_tracker()
+        main_hub.track_key_frame_mask_objs = (
+            main_hub.get_roar_seg_tracker().get_key_frame_to_masks()
+        )
+        end_frame_idx = main_hub.get_roar_seg_tracker().get_end_frame_idx()
+        start_frame_idx = main_hub.get_roar_seg_tracker().get_start_frame_idx()
+        TRACKERS[job_id] = tracker_object
+        CLIENTS[request.sid] = job_id
+        emit(
+            "post_frame_range",
+            {"type": "int", "start_frame": start_frame_idx, "end_frame": end_frame_idx},
+            room=request.sid,
+        )
+    except Exception as e:
+        print(f"Error in frame_track_start: {e}")
 
-    if TRACKERS.get(job_id) is not None:
-        return
-
-    tracker_object = create_main_hub(
-        job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output
-    )
-    main_hub = tracker_object
-    main_hub.set_tracker()
-    main_hub.track_key_frame_mask_objs = (
-        main_hub.get_roar_seg_tracker().get_key_frame_to_masks()
-    )
-    end_frame_idx = main_hub.get_roar_seg_tracker().get_end_frame_idx()
-    start_frame_idx = main_hub.get_roar_seg_tracker().get_start_frame_idx()
-    TRACKERS[job_id] = tracker_object
-    CLIENTS[request.sid] = job_id
-    emit(
-        "post_frame_range",
-        {"type": "int", "start_frame": start_frame_idx, "end_frame": end_frame_idx},
-        room=request.sid,
-    )
 
 
 @socketio.on("disconnect")
@@ -288,8 +304,6 @@ def get_frame(response):
 
 
 if __name__ == "__main__":
-    PORT = os.environ.get("PORT", 5000)
-    HOST = os.environ.get("HOST", "label.roarart.online")
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
 

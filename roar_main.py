@@ -780,6 +780,8 @@ def arg_main(
     reseg_frames: list[int] = [],
     delete_zip: bool = False,
 ):
+    print("in arg_main")
+
     sam_args["generator_args"] = {
         "points_per_side": 30,
         "pred_iou_thresh": 0.8,
