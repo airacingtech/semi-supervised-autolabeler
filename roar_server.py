@@ -1,6 +1,6 @@
 ###comment out if debugging in vscode is enabled
-import eventlet
-eventlet.monkey_patch()
+# import eventlet
+# eventlet.monkey_patch()
 ###
 from flask import Flask, request, render_template, send_from_directory, jsonify, session, redirect, url_for
 from flask_cors import CORS
