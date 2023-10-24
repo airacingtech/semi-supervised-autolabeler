@@ -1,26 +1,4 @@
-var server_address = "http://label.roarart.online:5001/upload";
-var server_main = "http://label.roarart.online:5001";
 var frame = 0;
-
-function configureServer() {
-  let serverAddress = new String(
-    document.getElementById("serverAddress").value
-  );
-  let formData = document.getElementById("userForm");
-  // You can save the server address somewhere or update the form's action attribute, etc.
-  if (!serverAddress.includes("/upload")) {
-    if (serverAddress[serverAddress.length - 1] == "/") {
-      server_main = serverAddress.slice(0, serverAddress.length - 1);
-      serverAddress = serverAddress + "upload";
-    } else {
-      server_main = serverAddress;
-      serverAddress = serverAddress + "/upload";
-    }
-  }
-  server_address = serverAddress;
-  formData.action = serverAddress;
-  alert("Configured to server: " + serverAddress);
-}
 
 function submitForm() {
   var data = document.getElementById("add_website_form");
@@ -43,7 +21,7 @@ const getFormJSON = (form) => {
 /** Sends data to flask app. */
 const insertData = (newData) => {
   console.log("insert data called \n");
-  fetch(server_address, {
+  fetch('/upload', {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -58,34 +36,35 @@ const insertData = (newData) => {
     .catch((error) => console.log(error));
 };
 
-document.addEventListener("scroll", function () {
-  const maxScroll = document.body.scrollHeight - window.innerHeight;
-  const percentScrolled = window.scrollY / maxScroll;
-  const translateYValue = -(percentScrolled * 100); // inverts the scroll direction for parallax effect
-  document.body.style.setProperty("--translateY", `${translateYValue}%`);
-});
+$(document).ready(() => {
 
-window.addEventListener("beforeunload", (event) => {
-  saveJob();
-});
+  document.addEventListener("scroll", function () {
+    const maxScroll = document.body.scrollHeight - window.innerHeight;
+    const percentScrolled = window.scrollY / maxScroll;
+    const translateYValue = -(percentScrolled * 100); // inverts the scroll direction for parallax effect
+    document.body.style.setProperty("--translateY", `${translateYValue}%`);
+  });
 
-const socket = io.connect(server_main, {
-  reconnection: true, // whether to reconnect automatically
-  reconnectionAttempts: 5, // number of reconnection attempts before giving up
-  reconnectionDelay: 1000, // how long to initially wait before attempting a new reconnection
-  reconnectionDelayMax: 5000, // maximum amount of time to wait between reconnection attempts
-  randomizationFactor: 0.5,
-});
+  window.addEventListener("beforeunload", (event) => {
+    saveJob();
+  });
 
-socket.on("disconnect", (reason) => {
-  console.log("Disconnected: ", reason);
-});
+  const socket = io.connect('/', {
+    reconnection: true, // whether to reconnect automatically
+    reconnectionAttempts: 5, // number of reconnection attempts before giving up
+    reconnectionDelay: 1000, // how long to initially wait before attempting a new reconnection
+    reconnectionDelayMax: 5000, // maximum amount of time to wait between reconnection attempts
+    randomizationFactor: 0.5,
+  });
 
-socket.on("connect_error", (err) => {
-  console.log(`connect_error due to ${err.message}`);
-});
+  socket.on("disconnect", (reason) => {
+    console.log("Disconnected: ", reason);
+  });
 
-window.onload = (event) => {
+  socket.on("connect_error", (err) => {
+    console.log(`connect_error due to ${err.message}`);
+  });
+
   var jobId = -1;
   var start_frame = -1;
   var end_frame = -1;
@@ -118,35 +97,19 @@ window.onload = (event) => {
     for (let [key, value] of formData.entries()) {
       output += key + ": " + value + "<br>";
     }
-    document.getElementById("downloadDiv").style.display = "none";
-    document.getElementById("output").className = "output-class";
-    document.getElementById("output").innerHTML = output;
-    let divChild = document.createElement("span");
-    divChild.id = "send_button";
-    divChild.appendChild(document.createTextNode("Is this input correct?"));
-    let button = document.createElement("button");
-    button.text = "yes";
-    button.textContent = "Yes";
-    button.name = "verify_button";
-    button.id = "submit_form";
-
     let jsonData = getFormJSON(document.getElementById("userForm"));
-    button.addEventListener("click", function (event) {
-      event.preventDefault();
-      let divChild = document.getElementById("send_button");
-      divChild.append(document.createElement("br"));
-      divChild.appendChild(
-        document.createTextNode("Job Sent! Wait for Frames to Load...")
-      );
-      let img_section = document.getElementById("image-display");
-      img_section.style.display = "block";
-      //jobId = parseInt(jobInput.value, 10);
-      sendJobToServer(jsonData);
-    });
-    divChild.append(document.createElement("br"));
-    divChild.appendChild(button);
-    data.appendChild(divChild);
+
+    let messageNode = document.getElementById("submit-message");
+    messageNode.textContent = "Loading..."
+
+    let img_section = document.getElementById("image-display");
+    img_section.style.display = "block";
+    //jobId = parseInt(jobInput.value, 10);
+    sendJobToServer(jsonData);
   }
+  let trackButton = document.getElementById('save_config')
+  trackButton.onclick = frameTrack
+
   function sendJobToServer(formData) {
     jobId = parseInt(jobInput.value, 10);
     if (!isNaN(jobId) && jobId > -1) {
@@ -154,104 +117,107 @@ window.onload = (event) => {
     }
   }
 
-};
 
-function saveJob() {
-  if (jobId > -1 && isConnected) {
-    socket.emit("save_job", jobId);
+  function saveJob() {
+    if (jobId > -1 && isConnected) {
+      socket.emit("save_job", jobId);
+    }
   }
-}
 
-socket.on("upload_response", function (response) {
-  let job_id = response['job_id']
-  let divNode = document.getElementById("downloadDiv");
-  let linkNode = document.getElementById("downloadLink");
-  divNode.style.display = "block";
+  socket.on("upload_response", function (response) {
+    let job_id = response['job_id']
+    let divNode = document.getElementById("downloadDiv");
+    let linkNode = document.getElementById("downloadLink");
+    divNode.style.display = "block";
 
-  if (response['status'] == 'success') {
-    divNode.textContent = "completed job " + job_id;
-    linkNode.href = "/download-annotation/"+job_id;
-    linkNode.style.display = "block";
-  } else {
-    node.textContent = "error on job " + job_id;
-    linkNode.style.display = "none";
+    if (response['status'] == 'success') {
+      divNode.textContent = "completed job " + job_id;
+      linkNode.href = "/download-annotation/" + job_id;
+      linkNode.style.display = "block";
+    } else {
+      node.textContent = "error on job " + job_id;
+      linkNode.style.display = "none";
+    }
+  });
+
+  socket.on("post_annotation", function (response) {
+    if (response.type === "text") {
+      console.log("Received string:", response.content);
+      let infoBox = document.getElementById("output");
+      infoBox.innerHTML = "Download Failed";
+      // Handle the string data (e.g., display an error message to the user)
+    } else if (response.type === "blob") {
+      // Handle the blob data (e.g., initiate a download)
+      let byteCharacters = atob(response.content);
+      let byteNumbers = Array.from(byteCharacters, (char) => char.charCodeAt(0));
+      let byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/zip" });
+      let url = window.URL.createObjectURL(blob);
+
+      let downloadLink = document.getElementById("downloadLink");
+      let downloadDiv = document.getElementById("output");
+      downloadDiv.style.display = "none";
+      downloadDiv = document.getElementById("downloadDiv");
+      downloadDiv.style.display = "block";
+      downloadLink.href = url;
+      downloadLink.addEventListener("click", function () {
+        // Wait for a brief moment before refreshing to ensure the download initiates
+        setTimeout(function () {
+          location.reload();
+        }, 100);
+      });
+
+      // Suggest a default filename for the download (optional)
+      downloadLink.download = "annotation.zip";
+
+      // Display the download link to the user
+      downloadDiv.style.display = "block";
+      downloadDiv.className = "download-section";
+      downloadLink.style.display = "block";
+    }
+  });
+  socket.on("post_frame_range", function (response) {
+    if (response.type === "int") {
+      start_frame = response.start_frame;
+      end_frame = response.end_frame;
+      console.log(
+        "got frame range, " +
+        "Valid Frame Range is " +
+        start_frame +
+        " to " +
+        end_frame
+      );
+      var textNode1 = document.createTextNode(
+        "Valid Frame Range is " + start_frame + " to " + end_frame
+      );
+      let section = document.getElementById("frameRange");
+      section.appendChild(textNode1);
+      section.style.display = "block";
+    }
+  });
+  socket.on("post_images", function (response) {
+    if (response.type === "image") {
+      let img_data = response["img"];
+      let img_mask_data = response["img_mask"];
+      let img_display1 = document.getElementById("displayImage1");
+      let img_display2 = document.getElementById("displayImage2");
+      img_display1.src = "data:image/jpeg;base64," + img_data;
+      img_display2.src = "data:image/jpeg;base64," + img_mask_data;
+    }
+  });
+  function sendFrameToServer() {
+    const frameValue = parseInt(frameInput.value, 10);
+    if (!isNaN(frameValue) && jobId > -1 && isConnected) {
+      socket.emit("frame_value", {
+        job_id: jobId,
+        frame: frameValue,
+      });
+    }
   }
-});
 
-socket.on("post_annotation", function (response) {
-  if (response.type === "text") {
-    console.log("Received string:", response.content);
-    let infoBox = document.getElementById("output");
-    infoBox.innerHTML = "Download Failed";
-    // Handle the string data (e.g., display an error message to the user)
-  } else if (response.type === "blob") {
-    // Handle the blob data (e.g., initiate a download)
-    let byteCharacters = atob(response.content);
-    let byteNumbers = Array.from(byteCharacters, (char) => char.charCodeAt(0));
-    let byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: "application/zip" });
-    let url = window.URL.createObjectURL(blob);
 
-    let downloadLink = document.getElementById("downloadLink");
-    let downloadDiv = document.getElementById("output");
-    downloadDiv.style.display = "none";
-    downloadDiv = document.getElementById("downloadDiv");
-    downloadDiv.style.display = "block";
-    downloadLink.href = url;
-    downloadLink.addEventListener("click", function () {
-      // Wait for a brief moment before refreshing to ensure the download initiates
-      setTimeout(function () {
-        location.reload();
-      }, 100);
-    });
+})
 
-    // Suggest a default filename for the download (optional)
-    downloadLink.download = "annotation.zip";
-
-    // Display the download link to the user
-    downloadDiv.style.display = "block";
-    downloadDiv.className = "download-section";
-    downloadLink.style.display = "block";
-  }
-});
-socket.on("post_frame_range", function (response) {
-  if (response.type === "int") {
-    start_frame = response.start_frame;
-    end_frame = response.end_frame;
-    console.log(
-      "got frame range, " +
-      "Valid Frame Range is " +
-      start_frame +
-      " to " +
-      end_frame
-    );
-    var textNode1 = document.createTextNode(
-      "Valid Frame Range is " + start_frame + " to " + end_frame
-    );
-    let section = document.getElementById("frameRange");
-    section.appendChild(textNode1);
-    section.style.display = "block";
-  }
-});
-socket.on("post_images", function (response) {
-  if (response.type === "image") {
-    let img_data = response["img"];
-    let img_mask_data = response["img_mask"];
-    let img_display1 = document.getElementById("displayImage1");
-    let img_display2 = document.getElementById("displayImage2");
-    img_display1.src = "data:image/jpeg;base64," + img_data;
-    img_display2.src = "data:image/jpeg;base64," + img_mask_data;
-  }
-});
-function sendFrameToServer() {
-  const frameValue = parseInt(frameInput.value, 10);
-  if (!isNaN(frameValue) && jobId > -1 && isConnected) {
-    socket.emit("frame_value", {
-      job_id: jobId,
-      frame: frameValue,
-    });
-  }
-}
 function backward() {
   changeFrame(-1);
 }

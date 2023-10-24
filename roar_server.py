@@ -7,38 +7,28 @@ load_dotenv()
 import base64
 import os
 import os.path as osp
-# import re
+from itertools import groupby
+from operator import itemgetter
+
+import dataset # https://dataset.readthedocs.io/en/latest/
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 
-from cvat_listener import CVAT_PATH
+from cvat_listener import CVAT_PATH, remove_job_from_file
 from roar_main import MainHub, arg_main, create_main_hub, save_main_hub
 from tool.roar_tools import numpy_to_base64
 from flask_celery import make_celery
 
-PORT = os.environ.get("PORT", 5000)
-HOST = os.environ.get("HOST", "label.roarart.online")
+PORT = os.environ.get("FLASK_RUN_PORT", 5000)
+HOST = os.environ.get("FLASK_RUN_HOST", "label.roarart.online")
 UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/home/roar-apex/cvat/downloads")
 
+
 app = Flask(__name__)
-parent_folder = os.path.dirname(os.path.abspath(__file__))
 
-keypath = osp.join(parent_folder, "agent.key")
-secret_key = "no key found"
-with open(keypath, "r") as f:
-    secret_key = f.read()
-app.config["SECRET_KEY"] = secret_key  # Change this to a random and secure value
-
-OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
-ANN_OUT = os.path.join("output", "annotations_output")
-IMAGES = ["image1.jpg", "image2.jpg", "image3.jpg"]
-TRACKERS = {}
-CLIENTS = {}
-
-current_image_index = 0
-
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
 app.config.update(
     CELERY_TASK_SERIALIZER = 'json',
@@ -51,20 +41,63 @@ cors = CORS(app, expose_headers=["Content-Disposition"])
 app.config["CORS_HEADERS"] = "Content-Type"
 
 
-def remove_job_from_file(filepath, job_id):
-    with open(filepath, "r") as f:
-        lines = f.readlines()
-    filename = f"{job_id}.zip"
-    with open(filepath, "w") as f:
-        for line in lines:
-            if filename not in line:
-                f.write(line)
+parent_folder = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
+ANN_OUT = os.path.join("output", "annotations_output")
+IMAGES = ["image1.jpg", "image2.jpg", "image3.jpg"]
+TRACKERS = {}
+CLIENTS = {}
+current_image_index = 0
 
+STATUS_READY = 1
+STATUS_QUEUED = 2
+STATUS_IN_PROGRESS = 3
+STATUS_DONE = 4
+db = dataset.connect(os.environ.get('DB_URL'))
+jobs_db = db['jobs']
+
+def get_jobs_from_cvat():
+    try:
+        with open(CVAT_PATH, "r") as file:
+            return [int(line.strip()[:-4]) for line in file.readlines()]
+    except Exception as e:
+        print("Error reading " + CVAT_PATH)
+        return []
+
+for jobid in get_jobs_from_cvat():
+    jobs_db.upsert(dict(id=jobid, status=STATUS_READY), ['id'])
+
+
+# import time
+# @celery.task(name="dummy_task")
+# def dummy_task(a, b):
+#     print(f"adding {a}+{b} after 10 seconds")
+#     time.sleep(10)
+#     return a + b
+
+# @app.route("/dummy/<a>/<b>")
+# def dummy_route(a, b):
+#     task = dummy_task.delay(int(a), int(b))
+#     return f"started task {task.id}"
+
+@app.route("/db")
+def show_db():
+    data = jobs_db.all()
+    for row in data:
+        print(row)
+    return 'hi'
+
+@app.route("/db/update/<id>/<status>")
+def test_db(id, status):
+    count = jobs_db.update(dict(id=id, status=status), ['id'], return_count=True)
+    print(f'updated {count} to queueud')
+    return str(count)
 
 @app.route("/")
 def index():
     return render_template(
-        "roar_webpage_updated.html", image_url=f"/uploads/{IMAGES[current_image_index]}"
+        # "index.html", image_url=f"/uploads/{IMAGES[current_image_index]}"
+        "index.html"
     )
 
 @app.route("/celery-status")
@@ -74,8 +107,6 @@ def celery_status():
     active = inspection.active()
     reserved = inspection.reserved()
     return jsonify({'active': active, 'scheduled': scheduled, 'reserved':reserved})
-
-
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -123,32 +154,37 @@ def upload_file():
                 file.save(filepath)
 
         task = do_arg_main.delay(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip)
-        return jsonify({"message": "Started task", "id": task.id })
+
+        # jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'])
+        count = jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'], return_count=True)
+        print(f'updated {count} to queueud')
+        return jsonify({"message": f"Queued job {job_id}", "task_id": task.id })
 
     except Exception as e:
         return f"Error while uploading with error: {e}", 400
 
 @celery.task(name="upload")
 def do_arg_main(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip):
-    # try:
-    print("in celery task")
-    out = arg_main(
-        job_id=job_id,
-        reseg_bool=reseg_bool,
-        reuse_output=reuse_annotation_output,
-        threads=threads,
-        reseg_frames=frames,
-        delete_zip=delete_zip,
-    )
-    print(out)
+    jobs_db.update(dict(id=job_id, status=STATUS_IN_PROGRESS), ['id'])
+    try:
+        out = arg_main(
+            job_id=job_id,
+            reseg_bool=reseg_bool,
+            reuse_output=reuse_annotation_output,
+            threads=threads,
+            reseg_frames=frames,
+            delete_zip=delete_zip,
+        )
 
-    print("after do_arg_main")
-    if job_id in TRACKERS:
-        TRACKERS.pop(job_id)
+        if job_id in TRACKERS:
+            TRACKERS.pop(job_id)
 
-    socketio.emit("upload_response", {"status": "success", "job_id": job_id})
-    # except Exception as e:
+        # socketio.emit("upload_response", {"status": "success", "job_id": job_id})
+    except Exception as e:
+        pass
         # socketio.emit("upload_response", {"status": "fail", "job_id": job_id})
+
+    jobs_db.update(dict(id=job_id, status=STATUS_DONE), ['id'])
     return job_id
 
 
@@ -156,7 +192,9 @@ def do_arg_main(job_id, reseg_bool, reuse_annotation_output, threads, frames, de
 def download_annotation(job_id):
     job_folder = os.path.join(OUTPUT_FOLDER, job_id)
     annotation_output = os.path.join(job_folder, ANN_OUT)
-    remove_job_from_file(CVAT_PATH, job_id)
+    remove_job_from_file(job_id)
+
+    jobs_db.delete(id=job_id, status=STATUS_DONE)
 
     return send_from_directory(annotation_output, "annotation.zip", as_attachment=True, download_name=f"annotation-{job_id}.zip")
     
@@ -166,14 +204,24 @@ def serve_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 
-@app.route("/getUpdate", methods=["GET"])
+@app.route("/jobs-status", methods=["GET"])
 def get_update():
-    try:
-        with open(CVAT_PATH, "r") as file:
-            content = file.read()
-        return jsonify(content=content)
-    except Exception as e:
-        return jsonify(error=str(e)), 500
+    jobs = jobs_db.all()
+    status_map = {STATUS_READY: 'ready', STATUS_IN_PROGRESS: 'in_progress', STATUS_DONE: 'done', STATUS_QUEUED: 'queued'}
+    grouped_jobs = {'ready': [], 'done': [], 'in_progress': [], 'queued':[]}
+
+    curr_uploaded_jobs = jobs_db.find(status=STATUS_READY)
+    updated_uploaded_jobs = get_jobs_from_cvat()
+    new_jobs = [job for job in updated_uploaded_jobs if job not in curr_uploaded_jobs]
+    for jobid in new_jobs:
+        if not jobs_db.find_one(id=jobid):
+            jobs_db.upsert(dict(id=jobid, status=STATUS_READY), ['id'])
+
+    for job in jobs:
+        if job['status'] in status_map:
+            grouped_jobs[status_map[job['status']]].append(job['id'])
+    return jsonify(grouped_jobs)
+
 
 
 def start_client(job_id: int = 0):
@@ -265,7 +313,7 @@ def save_tracker(jobId):
         CLIENTS.pop(request.sid)
     job_folder = os.path.join(OUTPUT_FOLDER, str(jobId))
     annotation_output = os.path.join(job_folder, ANN_OUT)
-    remove_job_from_file(CVAT_PATH, jobId)
+    # remove_job_from_file(CVAT_PATH, jobId)
     zip_file = os.path.join(annotation_output, "annotation.zip")
     if os.path.exists(zip_file):
         # Convert the file into a blob or a data URL (Base64 encoding) and send it
