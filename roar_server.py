@@ -1,25 +1,19 @@
 import eventlet
 
 eventlet.monkey_patch()
-from flask import (
-    Flask,
-    request,
-    render_template,
-    send_from_directory,
-    jsonify,
-    session,
-    redirect,
-    url_for,
-)
-from flask_cors import CORS
+import base64
 import os
 import os.path as osp
-from roar_main import arg_main, MainHub, create_main_hub, save_main_hub
-import re
+# import re
+
+from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask_cors import CORS
+from flask_socketio import SocketIO, emit
+
 from cvat_listener import CVAT_PATH
+from roar_main import MainHub, arg_main, create_main_hub, save_main_hub
 from tool.roar_tools import numpy_to_base64
-from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
-import base64
+from flask_celery import make_celery
 
 app = Flask(__name__)
 parent_folder = os.path.dirname(os.path.abspath(__file__))
@@ -32,7 +26,6 @@ socketio = SocketIO(app, cors_allowed_origins="https://label.roarart.online:5000
 cors = CORS(app)
 app.config["CORS_HEADERS"] = "Content-Type"
 UPLOAD_FOLDER = "/home/roar-apex/cvat/downloads"
-# UPLOAD_FOLDER = "C:/Users/chowm/Downloads"
 
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
 ANN_OUT = os.path.join("output", "annotations_output")
@@ -42,7 +35,13 @@ CLIENTS = {}
 
 current_image_index = 0
 
-socketio = SocketIO(app)
+
+app.config.update(
+    CELERY_BROKER_URL = "amqp://localhost//",
+    CELERY_RESULT_BACKEND = "rpc://"
+)
+socketio = SocketIO(app, message_queue='amqp://')
+celery = make_celery(app)
 
 
 def remove_job_from_file(filepath, job_id):
@@ -62,13 +61,9 @@ def index():
     )
 
 
-@app.route("/upload", methods=["POST", "GET"])
+@app.route("/upload", methods=["POST"])
 def upload_file():
     try:
-        if request.method == "GET":
-            return "Nice try uploading..."
-        file_test = request.files.get("file")
-        # r = request.get_json(force=True)
         r = request.form
 
         job_id = int(r.get("jobId"))
@@ -117,29 +112,38 @@ def upload_file():
                     return "Specified UPLOAD_FOLDER in server does not exist", 400
                 file.save(filepath)
 
-        arg_main(
-            job_id=job_id,
-            reseg_bool=reseg_bool,
-            reuse_output=reuse_annotation_output,
-            threads=threads,
-            reseg_frames=frames,
-            delete_zip=delete_zip,
-        )
-        job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
-        annotation_output = os.path.join(job_folder, ANN_OUT)
-        remove_job_from_file(CVAT_PATH, job_id)
-        TRACKERS.pop(job_id)
-        zip_file = os.path.join(annotation_output, "annotation.zip")
-        output = (
-            send_from_directory(annotation_output, "annotation.zip", as_attachment=True)
-            if os.path.exists(zip_file)
-            else "No File"
-        )
-        return output
+        do_arg_main.delay(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip)
+        return "Started job", 200
+
     except Exception as e:
         return f"Error while uploading with error: {e}", 400
-        # return 'File uploaded successfully'
 
+@celery.task(name="upload")
+def do_arg_main(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip):
+    print("inside do_arg_main")
+    socketio = SocketIO(message_queue="amqp://")
+    arg_main(
+        job_id=job_id,
+        reseg_bool=reseg_bool,
+        reuse_output=reuse_annotation_output,
+        threads=threads,
+        reseg_frames=frames,
+        delete_zip=delete_zip,
+    )
+    job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
+    annotation_output = os.path.join(job_folder, ANN_OUT)
+    remove_job_from_file(CVAT_PATH, job_id)
+    TRACKERS.pop(job_id)
+    zip_file = os.path.join(annotation_output, "annotation.zip")
+    output = (
+        send_from_directory(annotation_output, "annotation.zip", as_attachment=True)
+        if os.path.exists(zip_file)
+        else "No File"
+    )
+    socketio.emit("upload_response", {"output": output})
+    # emit("upload_response", {"output": output})
+
+    
 
 @app.route("/segment", methods=["POST"])
 def serve_file(filename):
