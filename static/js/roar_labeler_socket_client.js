@@ -1,5 +1,5 @@
-var server_address = "http://label.roarart.online:5000/upload";
-var server_main = "http://label.roarart.online:5000";
+var server_address = "http://label.roarart.online:5001/upload";
+var server_main = "http://label.roarart.online:5001";
 var frame = 0;
 
 function configureServer() {
@@ -85,69 +85,77 @@ socket.on("connect_error", (err) => {
   console.log(`connect_error due to ${err.message}`);
 });
 
-var jobId = -1;
-var start_frame = -1;
-var end_frame = -1;
-const frameInput = document.getElementById("frameInput");
-var isConnected = false;
-//frameInput.addEventListener('blur', sendFrameToServer); // Send when cursor leaves the textbox
-frameInput.addEventListener("keyup", function (event) {
-  // Send when "Enter" key is pressed
-  if (event.keyCode === 13) {
-    sendFrameToServer();
-  }
-});
-const jobInput = document.getElementById("job_id");
+window.onload = (event) => {
+  var jobId = -1;
+  var start_frame = -1;
+  var end_frame = -1;
+  var isConnected = false;
 
-jobInput.addEventListener("blur", sendJobToServer);
-jobInput.addEventListener("keyup", function (event) {
-  if (event.keyCode === 13) {
-    sendJobToServer();
-  }
-});
-function frameTrack() {
-  let formData = new FormData(document.getElementById("userForm"));
-  isConnected = true;
-  var data = document.getElementById("userForm");
-  let output = "";
-  for (let [key, value] of formData.entries()) {
-    output += key + ": " + value + "<br>";
-  }
-  document.getElementById("downloadDiv").style.display = "none";
-  document.getElementById("output").className = "output-class";
-  document.getElementById("output").innerHTML = output;
-  let divChild = document.createElement("span");
-  divChild.id = "send_button";
-  divChild.appendChild(document.createTextNode("Is this input correct?"));
-  let button = document.createElement("button");
-  button.text = "yes";
-  button.textContent = "Yes";
-  button.name = "verify_button";
-  button.id = "submit_form";
+  const frameInput = document.getElementById("frameInput");
 
-  let jsonData = getFormJSON(document.getElementById("userForm"));
-  button.addEventListener("click", function (event) {
-    event.preventDefault();
-    let divChild = document.getElementById("send_button");
-    divChild.append(document.createElement("br"));
-    divChild.appendChild(
-      document.createTextNode("Job Sent! Wait for Frames to Load...")
-    );
-    let img_section = document.getElementById("image-display");
-    img_section.style.display = "block";
-    //jobId = parseInt(jobInput.value, 10);
-    sendJobToServer(jsonData);
+  //frameInput.addEventListener('blur', sendFrameToServer); // Send when cursor leaves the textbox
+  frameInput.addEventListener("keyup", function (event) {
+    // Send when "Enter" key is pressed
+    if (event.keyCode === 13) {
+      sendFrameToServer();
+    }
   });
-  divChild.append(document.createElement("br"));
-  divChild.appendChild(button);
-  data.appendChild(divChild);
-}
-function sendJobToServer(formData) {
-  jobId = parseInt(jobInput.value, 10);
-  if (!isNaN(jobId) && jobId > -1) {
-    socket.emit("frame_track_start", formData);
+  const jobInput = document.getElementById("job_id");
+
+  jobInput.addEventListener("blur", sendJobToServer);
+  jobInput.addEventListener("keyup", function (event) {
+    if (event.keyCode === 13) {
+      sendJobToServer();
+    }
+  });
+
+
+  function frameTrack() {
+    let formData = new FormData(document.getElementById("userForm"));
+    isConnected = true;
+    var data = document.getElementById("userForm");
+    let output = "";
+    for (let [key, value] of formData.entries()) {
+      output += key + ": " + value + "<br>";
+    }
+    document.getElementById("downloadDiv").style.display = "none";
+    document.getElementById("output").className = "output-class";
+    document.getElementById("output").innerHTML = output;
+    let divChild = document.createElement("span");
+    divChild.id = "send_button";
+    divChild.appendChild(document.createTextNode("Is this input correct?"));
+    let button = document.createElement("button");
+    button.text = "yes";
+    button.textContent = "Yes";
+    button.name = "verify_button";
+    button.id = "submit_form";
+
+    let jsonData = getFormJSON(document.getElementById("userForm"));
+    button.addEventListener("click", function (event) {
+      event.preventDefault();
+      let divChild = document.getElementById("send_button");
+      divChild.append(document.createElement("br"));
+      divChild.appendChild(
+        document.createTextNode("Job Sent! Wait for Frames to Load...")
+      );
+      let img_section = document.getElementById("image-display");
+      img_section.style.display = "block";
+      //jobId = parseInt(jobInput.value, 10);
+      sendJobToServer(jsonData);
+    });
+    divChild.append(document.createElement("br"));
+    divChild.appendChild(button);
+    data.appendChild(divChild);
   }
-}
+  function sendJobToServer(formData) {
+    jobId = parseInt(jobInput.value, 10);
+    if (!isNaN(jobId) && jobId > -1) {
+      socket.emit("frame_track_start", formData);
+    }
+  }
+
+};
+
 function saveJob() {
   if (jobId > -1 && isConnected) {
     socket.emit("save_job", jobId);
@@ -155,7 +163,19 @@ function saveJob() {
 }
 
 socket.on("upload_response", function (response) {
-  console.log("got upload_response", response);
+  let job_id = response['job_id']
+  let divNode = document.getElementById("downloadDiv");
+  let linkNode = document.getElementById("downloadLink");
+  divNode.style.display = "block";
+
+  if (response['status'] == 'success') {
+    divNode.textContent = "completed job " + job_id;
+    linkNode.href = "/download-annotation/"+job_id;
+    linkNode.style.display = "block";
+  } else {
+    node.textContent = "error on job " + job_id;
+    linkNode.style.display = "none";
+  }
 });
 
 socket.on("post_annotation", function (response) {
@@ -200,10 +220,10 @@ socket.on("post_frame_range", function (response) {
     end_frame = response.end_frame;
     console.log(
       "got frame range, " +
-        "Valid Frame Range is " +
-        start_frame +
-        " to " +
-        end_frame
+      "Valid Frame Range is " +
+      start_frame +
+      " to " +
+      end_frame
     );
     var textNode1 = document.createTextNode(
       "Valid Frame Range is " + start_frame + " to " + end_frame
