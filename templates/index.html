@@ -56,10 +56,10 @@
 
                             <br><br>
 
-                            <button type="button" id="save_config" class="button is-info" >
-                                frame-by-frame tracking
+                            <button type="button" id="manual_track_button" class="button is-info" >
+                                Manual Track
                             </button>
-                            <button type="button" id="submit_user_form" class="button is-info" onClick="onSubmit()">
+                            <button type="button" id="auto_track_button" class="button is-info" onClick="onSubmit()">
                                 Automatic Track
                             </button>
 
@@ -79,9 +79,12 @@
                         <h3 class="is-size-5">Jobs in progress</h3>
                         <pre id="inprogress-jobs"></pre>
 
-                        <h3 class="is-size-5">Completed jobs</h3>
+                        <h3 class="is-size-5 has-text-info">Completed jobs</h3>
                         <p>Click to download (one-time)</p>
                         <pre id="completed-jobs"></pre>
+
+                        <h3 class="is-size-5 has-text-danger">Failed jobs</h3>
+                        <pre id="failed-jobs" class="has-text-danger"></pre>
 
                         <p>(updates every 5 seconds)</p>
                     </div>
@@ -92,19 +95,18 @@
 
 
             <section class="section image-display-section" id="image-display" style="display:none;">
-                <h3>Image Display & Controls</h3>
+                <h3 class="is-size-5">Manual Tracking for job <span id="manual-track-job-id">#</span></h3>
 
                 <img id="displayImage1" src="{{ image_url }}" width="auto" alt="Image Viewer">
                 <img id="displayImage2" src="{{ image_url }}" width="auto" alt="Image Viewer">
                 <br>
                 <button onclick="backward()" id="backButton">Backward</button>
-                <input type="number" id="frameInput" placeholder="Input frame number here">
+                <input type="number" id="frameInput" placeholder="Frame number">
                 <button onclick="forward()" id="forwardButton">Forward</button>
+                <p class="" id="frameRange" ></p>
                 <br><br>
-                <button onclick="saveJob()" id="saveButton">Save</button>
-            </section>
-
-            <section class="section" id="frameRange" style="display:none;">
+                <button onclick="saveJob()" id="saveButton" class="button is-info">Mark complete</button>
+                <p id="manual-track-message"></p>
             </section>
 
 

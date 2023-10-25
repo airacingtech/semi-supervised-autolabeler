@@ -53,6 +53,7 @@ STATUS_READY = 1
 STATUS_QUEUED = 2
 STATUS_IN_PROGRESS = 3
 STATUS_DONE = 4
+STATUS_FAIL = 5
 db = dataset.connect(os.environ.get('DB_URL'))
 jobs_db = db['jobs']
 
@@ -81,6 +82,11 @@ def celery_status():
     active = inspection.active()
     reserved = inspection.reserved()
     return jsonify({'active': active, 'scheduled': scheduled, 'reserved':reserved})
+
+@app.route("/clean-jobs")
+def clean_jobs():
+    jobs_db.delete()
+    return "Cleaned up all jobs"
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -151,12 +157,11 @@ def do_arg_main(job_id, reseg_bool, reuse_annotation_output, threads, frames, de
         if job_id in TRACKERS:
             TRACKERS.pop(job_id)
 
-        # socketio.emit("upload_response", {"status": "success", "job_id": job_id})
-    except Exception as e:
-        pass
-        # socketio.emit("upload_response", {"status": "fail", "job_id": job_id})
+        jobs_db.update(dict(id=job_id, status=STATUS_DONE), ['id'])
 
-    jobs_db.update(dict(id=job_id, status=STATUS_DONE), ['id'])
+    except Exception as e:
+        jobs_db.update(dict(id=job_id, status=STATUS_FAIL), ['id'])
+
     return job_id
 
 
@@ -179,8 +184,8 @@ def serve_file(filename):
 @app.route("/jobs-status", methods=["GET"])
 def get_update():
     jobs = jobs_db.all()
-    status_map = {STATUS_READY: 'ready', STATUS_IN_PROGRESS: 'in_progress', STATUS_DONE: 'done', STATUS_QUEUED: 'queued'}
-    grouped_jobs = {'ready': [], 'done': [], 'in_progress': [], 'queued':[]}
+    status_map = {STATUS_READY: 'ready', STATUS_IN_PROGRESS: 'in_progress', STATUS_DONE: 'done', STATUS_QUEUED: 'queued', STATUS_FAIL: 'failed'}
+    grouped_jobs = {'ready': [], 'done': [], 'in_progress': [], 'queued':[], 'failed':[]}
 
     curr_uploaded_jobs = jobs_db.find(status=STATUS_READY)
     updated_uploaded_jobs = get_jobs_from_cvat()
@@ -217,9 +222,11 @@ def get_frame_for_client(main_hub, frame: int = 0):
 @socketio.on("frame_track_start")
 def assign_tracker(formData):
     r = formData
+    job_id = -1
+
     try: 
         job_id = int(r.get("jobId"))
-
+        jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'])
         if type(r.get("threads")) is str or type(r.get("threads")) is int:
             threads = r["threads"]
             if threads == "":
@@ -261,9 +268,10 @@ def assign_tracker(formData):
             {"type": "int", "start_frame": start_frame_idx, "end_frame": end_frame_idx},
             room=request.sid,
         )
+        jobs_db.update(dict(id=job_id, status=STATUS_IN_PROGRESS), ['id'])
     except Exception as e:
         print(f"Error in frame_track_start: {e}")
-
+        jobs_db.update(dict(id=job_id, status=STATUS_FAIL), ['id'])
 
 
 @socketio.on("disconnect")
@@ -274,32 +282,20 @@ def handle_disconnect():
 
 
 @socketio.on("save_job")
-def save_tracker(jobId):
-    assert type(jobId) == int
-    if TRACKERS.get(jobId) is not None:
-        main_hub = TRACKERS[jobId]
+def save_tracker(job_id):
+    assert type(job_id) == int
+    if TRACKERS.get(job_id) is not None:
+        main_hub = TRACKERS[job_id]
         if type(main_hub) == MainHub:
             save_main_hub(main_hub)
-        TRACKERS.pop(jobId)
+        TRACKERS.pop(job_id)
         CLIENTS.pop(request.sid)
-    job_folder = os.path.join(OUTPUT_FOLDER, str(jobId))
+    job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
     annotation_output = os.path.join(job_folder, ANN_OUT)
-    # remove_job_from_file(CVAT_PATH, jobId)
     zip_file = os.path.join(annotation_output, "annotation.zip")
-    if os.path.exists(zip_file):
-        # Convert the file into a blob or a data URL (Base64 encoding) and send it
-        with open(zip_file, "rb") as f:
-            file_data = f.read()
-            b64_encoded_data = base64.b64encode(file_data).decode("utf-8")
-            emit(
-                "post_annotation",
-                {"type": "blob", "content": b64_encoded_data},
-                room=request.sid,
-            )
-    else:
-        emit(
-            "post_annotation", {"type": "text", "content": "No File"}, room=request.sid
-        )
+
+    jobs_db.update(dict(id=job_id, status=STATUS_DONE), ['id'])
+    
 
 
 @socketio.on("frame_value")

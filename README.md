@@ -1,5 +1,6 @@
 # CVAT Instance Segmentation Tracker
 
+Jump to [running the server](#running-the-server)
 
 ## Overview
 
@@ -101,7 +102,7 @@ A visual version of the tracker, can see what the tracker is tracking at each fr
 ## Command Line Interface
 
 ```python
-python3 roar_main.py
+python roar_main.py
 ```
 
  

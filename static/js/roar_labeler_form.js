@@ -48,6 +48,7 @@ async function fetchUpdate() {
     document.getElementById("uploaded-jobs").textContent = data.ready.join('\n');
     document.getElementById("queued-jobs").textContent = data.queued.join('\n');
     document.getElementById("inprogress-jobs").textContent = data.in_progress.join('\n');
+    document.getElementById("failed-jobs").textContent = data.failed.join('\n');
 
     document.getElementById("completed-jobs").innerHTML = data.done.map(jobid => {
       return `<a target="_blank" href="/download-annotation/${jobid}">${jobid}</a>`
