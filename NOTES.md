@@ -9,3 +9,6 @@ celery -A roar_server.celery worker --loglevel=info -P eventlet -E
 # but recommended to have 1 worker per machine. question is, are there more machines we can use?
 
 pkill -9 -f 'celery worker'
+
+celery -A roar_server.celery worker --loglevel=info -P eventlet -E -n worker1
+celery -A roar_server.celery worker --loglevel=info -P eventlet -E -n worker2

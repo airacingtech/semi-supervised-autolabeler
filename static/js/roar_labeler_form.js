@@ -22,33 +22,11 @@ function saveConfig() {
 
 function onSubmit() {
   let formData = new FormData(document.getElementById("userForm"));
-  var data = document.getElementById("userForm");
-  let output = "";
-  for (let [key, value] of formData.entries()) {
-    output += key + ": " + value + "<br>";
-  }
-  document.getElementById("downloadDiv").style.display = "none";
-  document.getElementById("output").className = "output-class";
-  document.getElementById("output").innerHTML = output;
-  let divChild = document.createElement("span");
-  divChild.id = "send_button";
-  divChild.appendChild(document.createTextNode("Is this input correct?"));
-  let button = document.createElement("button");
-  button.text = "yes";
-  button.textContent = "Yes";
-  button.name = "verify_button";
-  button.id = "submit_form";
 
-  button.addEventListener("click", function (event) {
-    event.preventDefault();
-    let divChild = document.getElementById("send_button");
-    divChild.append(document.createElement("br"));
+    let messageNode = document.getElementById("submit-message")
+    messageNode.textContent = "Submitting job " + formData.get('jobId') + "..."
 
-    let messageNode = document.createTextNode("Loading...")
-    messageNode.id = "message_jobid"
-    divChild.appendChild(messageNode);
-
-    fetch(server_address, {
+    fetch('/upload', {
       method: "POST",
       body: formData,
     })
@@ -59,22 +37,28 @@ function onSubmit() {
       })
       .catch((error) => {
         console.error("Error:", error);
+        messageNode.textContent = "Error submitting job " + formData.get('jobId') + "."
       });
-  });
-  divChild.append(document.createElement("br"));
-  divChild.appendChild(button);
-  data.appendChild(divChild);
-  // return false;  // prevent actual form submission for demonstration
 }
+
 async function fetchUpdate() {
   try {
-    let response = await fetch("/getUpdate");
+    let response = await fetch("/jobs-status");
     let data = await response.json();
-    document.getElementById("content").textContent = data.content;
+    document.getElementById("uploaded-jobs").textContent = data.ready.join('\n');
+    document.getElementById("queued-jobs").textContent = data.queued.join('\n');
+    document.getElementById("inprogress-jobs").textContent = data.in_progress.join('\n');
+
+    document.getElementById("completed-jobs").innerHTML = data.done.map(jobid => {
+      return `<a target="_blank" href="/download-annotation/${jobid}">${jobid}</a>`
+    }).join('\n');
   } catch (error) {
     console.error("There was an error fetching the update:", error);
+  } finally {
+    setTimeout(fetchUpdate, 2000);
   }
 }
 
-// Fetch update every 2 seconds
-setInterval(fetchUpdate, 2000);
+$(document).ready(() => {
+  fetchUpdate()
+})
