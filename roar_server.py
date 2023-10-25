@@ -68,36 +68,10 @@ for jobid in get_jobs_from_cvat():
     jobs_db.upsert(dict(id=jobid, status=STATUS_READY), ['id'])
 
 
-# import time
-# @celery.task(name="dummy_task")
-# def dummy_task(a, b):
-#     print(f"adding {a}+{b} after 10 seconds")
-#     time.sleep(10)
-#     return a + b
-
-# @app.route("/dummy/<a>/<b>")
-# def dummy_route(a, b):
-#     task = dummy_task.delay(int(a), int(b))
-#     return f"started task {task.id}"
-
-@app.route("/db")
-def show_db():
-    data = jobs_db.all()
-    for row in data:
-        print(row)
-    return 'hi'
-
-@app.route("/db/update/<id>/<status>")
-def test_db(id, status):
-    count = jobs_db.update(dict(id=id, status=status), ['id'], return_count=True)
-    print(f'updated {count} to queueud')
-    return str(count)
-
 @app.route("/")
 def index():
     return render_template(
-        # "index.html", image_url=f"/uploads/{IMAGES[current_image_index]}"
-        "index.html"
+        "index.html", image_url=f"/uploads/{IMAGES[current_image_index]}"
     )
 
 @app.route("/celery-status")
@@ -155,9 +129,7 @@ def upload_file():
 
         task = do_arg_main.delay(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip)
 
-        # jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'])
-        count = jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'], return_count=True)
-        print(f'updated {count} to queueud')
+        jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'])
         return jsonify({"message": f"Queued job {job_id}", "task_id": task.id })
 
     except Exception as e:
@@ -245,7 +217,6 @@ def get_frame_for_client(main_hub, frame: int = 0):
 @socketio.on("frame_track_start")
 def assign_tracker(formData):
     r = formData
-    print(f"r: {r}")
     try: 
         job_id = int(r.get("jobId"))
 

@@ -100,7 +100,7 @@ $(document).ready(() => {
     let jsonData = getFormJSON(document.getElementById("userForm"));
 
     let messageNode = document.getElementById("submit-message");
-    messageNode.textContent = "Loading..."
+    messageNode.textContent = "Loading (see below)"
 
     let img_section = document.getElementById("image-display");
     img_section.style.display = "block";
