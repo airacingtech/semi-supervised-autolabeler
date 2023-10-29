@@ -16,3 +16,12 @@ pkill -9 -f 'celery worker'
 python roar_server.py
 OR
 flask --app roar_server --debug run
+
+
+### Run in background
+nohup <command> > out.txt &
+
+pids
+265563
+269909
+321483

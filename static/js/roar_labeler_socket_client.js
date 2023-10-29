@@ -84,23 +84,9 @@ $(document).ready(() => {
   const trackButton = document.getElementById('manual_track_button')
   trackButton.onclick = frameTrack
 
-
-  socket.on("upload_response", function (response) {
-    let job_id = response['job_id']
-    let divNode = document.getElementById("downloadDiv");
-    let linkNode = document.getElementById("downloadLink");
-    divNode.style.display = "block";
-
-    if (response['status'] == 'success') {
-      divNode.textContent = "completed job " + job_id;
-      linkNode.href = "/download-annotation/" + job_id;
-      linkNode.style.display = "block";
-    } else {
-      node.textContent = "error on job " + job_id;
-      linkNode.style.display = "none";
-    }
-  });
-
+  socket.on("job_progress", (res) => {
+    update_progress(res.job_id, res.percent)
+  })
 
   socket.on("post_frame_range", function (response) {
     if (response.type === "int") {
@@ -180,3 +166,18 @@ function changeFrame(valueChange) {
   }
 }
 
+
+function update_progress(job_id, progress) {
+  let progressContainer = document.getElementById("progress-container");
+  let progressBar = document.getElementById("progress-"+job_id);
+  if (!progressBar) {
+    progressBar = document.createElement("div");
+    progressBar.id = "progress-"+job_id;
+    progressBar.className = "progress-bar";
+    progressContainer.appendChild(progressBar)
+  }
+
+  progressBar.style.width = progress*100 + "%";
+  progressBar.innerHTML = `Job ${job_id}: ${Math.round(progress*100)}%`;
+
+}

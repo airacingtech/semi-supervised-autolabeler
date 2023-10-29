@@ -13,7 +13,7 @@
     <script src="{{ url_for('static', filename='js/roar_labeler_socket_client.js') }}"></script>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/style.css') }}" type="text/css" /> -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/style.css') }}" type="text/css" />
 </head>
 
 <body class="container mt-6">
@@ -46,13 +46,10 @@
 
                             Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox"
                                 name="reuseAnnotation"><br><br>
-                            Delete job zip on server: <input id="delete_zip" type="checkbox" name="delete_zip"><br><br>
                             <div id="framesDiv" style="display:none;">
                                 List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text"
                                     name="frames" placeholder="ex: 7,9,10 (no spaces)"><br><br>
                             </div>
-
-                            Upload your job.zip: <input type="file" name="file" id="jobFile">
 
                             <br><br>
 
@@ -65,11 +62,15 @@
 
                             <p id="submit-message"></p>
 
+                            <div id="progress-container" class="progress-container">
+                                <!-- <div class="progress-bar" id="progress-123"></div> -->
+                            </div>
+
                         </form>
 
                     </div>
 
-                    <div class="column">
+                    <div class="column is-three-fifths">
                         <h3 class="is-size-5">Ready (uploaded from cvat)</h3>
                         <pre id="uploaded-jobs"></pre>
 
@@ -84,10 +85,11 @@
                         <pre id="completed-jobs"></pre>
 
                         <h3 class="is-size-5 has-text-danger">Failed jobs</h3>
-                        <pre id="failed-jobs" class="has-text-danger"></pre>
+                        <pre id="failed-jobs" class="has-text-danger" style="overflow-x: scroll;"></pre>
 
                         <p>(updates every 5 seconds)</p>
                     </div>
+
 
                 </div>
 

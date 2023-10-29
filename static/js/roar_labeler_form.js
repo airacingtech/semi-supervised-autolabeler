@@ -30,7 +30,9 @@ function onSubmit() {
       method: "POST",
       body: formData,
     })
-      .then((res) => res.json())
+      .then((res) => {
+        console.log(res)
+        return res.json()})
       .then((data) => {
         console.log(data)
         messageNode.textContent = data["message"]
@@ -45,12 +47,12 @@ async function fetchUpdate() {
   try {
     let response = await fetch("/jobs-status");
     let data = await response.json();
-    document.getElementById("uploaded-jobs").textContent = data.ready.join('\n');
-    document.getElementById("queued-jobs").textContent = data.queued.join('\n');
+    document.getElementById("uploaded-jobs").textContent = data.ready.map((a)=>a[0]).join('\n');
+    document.getElementById("queued-jobs").textContent = data.queued.map((a)=>a[0]).join('\n');
     document.getElementById("inprogress-jobs").textContent = data.in_progress.join('\n');
     document.getElementById("failed-jobs").textContent = data.failed.join('\n');
-
-    document.getElementById("completed-jobs").innerHTML = data.done.map(jobid => {
+    document.getElementById("completed-jobs").innerHTML = data.done.map(a=> {
+      let jobid = a[0]
       return `<a target="_blank" href="/download-annotation/${jobid}">${jobid}</a>`
     }).join('\n');
   } catch (error) {

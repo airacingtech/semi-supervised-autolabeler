@@ -1,27 +1,24 @@
-import gc
+from matplotlib.sankey import DOWN
+import tool.roar_tools as rt
+from RoarSegTracker import RoarSegTracker
 import json
 import os
-import threading
-import time
-from concurrent.futures.thread import ThreadPoolExecutor
-from datetime import datetime
-
+import cv2
+from model_args import aot_args, sam_args, segtracker_args
+from PIL import Image
+from aot_tracker import _palette
 import numpy as np
 import torch
-from matplotlib.sankey import DOWN
+import imageio
+import matplotlib.pyplot as plt
+from scipy.ndimage import binary_dilation
+from datetime import datetime
+import gc
 from tqdm import tqdm
-
-import tool.roar_tools as rt
-from model_args import aot_args, sam_args, segtracker_args
+from concurrent.futures.thread import ThreadPoolExecutor
 from roar_file_handler import RoarFileHandler
-from RoarSegTracker import RoarSegTracker
-
-# from PIL import Image
-# from aot_tracker import _palette
-# import cv2
-# import imageio
-# import matplotlib.pyplot as plt
-# from scipy.ndimage import binary_dilation
+import threading
+import time
 
 
 DOWNLOADS_PATH = "/home/roar-apex/cvat/downloads"
@@ -41,6 +38,14 @@ segtracker_args = {
     "max_obj_num": 255,  # maximal object number to track in a video
     "min_new_obj_iou": 0.8,  # the area of a new object in the background should > 80%
 }
+
+
+from flask_socketio import SocketIO
+def progress_socketemit(job_id, percent, room):
+    socketio = SocketIO(message_queue='amqp://')
+    # socketio.emit("job_progress", {"job_id": job_id, percent: percent}, room=room)
+    socketio.emit("job_progress", {"job_id": job_id, "percent": percent})
+
 
 
 class MainHub:
@@ -164,15 +169,43 @@ class MainHub:
     def get_roar_seg_tracker(self) -> RoarSegTracker:
         return self.roarsegtracker
 
-    def setup_reseg_key_frames(self, new_frames: list[int], past_frames: list[int]):
+    def setup_reseg_key_frames(
+        self, new_frames_org: list[int], past_frames: list[int]
+    ) -> list[int]:
+        """
+        Generates new combined keyframes given list of old key frames and
+        list of new key frames to resegment. Ensure in order and no duplicates
+        given that PAST_FRAMES and NEW_FRAMES is in order already
+
+        Arguments:
+            new_frames (list[int]) : list of new key frames to resegment
+            past_frames (list[int]): list of old key frames to use
+        Returns:
+            list[int]: list of combined key frames in order with no duplicates
+        """
         try:
-            combined_frames = past_frames + new_frames
-            dupes = {}
-            for frame in combined_frames:
-                dupes[frame] = 1
-            frames = list(dupes.keys())
-            frames.sort()
-            return frames
+            # combined_frames = past_frames + new_frames
+            # dupes = {}
+            # for frame in combined_frames:
+            #     dupes[frame] = 1
+            # frames = list(dupes.keys())
+            # frames.sort()
+            # return frames
+            combined_frames = []
+            new_frames = new_frames_org[:]
+            for i in range(len(past_frames)):
+                if len(new_frames) == 0:
+                    combined_frames.append(past_frames[i])
+                elif past_frames[i] > new_frames[0]:
+                    combined_frames.append(new_frames.pop(0))
+                    combined_frames.append(past_frames[i])
+                elif past_frames[i] == new_frames[0]:
+                    combined_frames.append(new_frames.pop(0))
+                else:
+                    combined_frames.append(past_frames[i])
+            if len(new_frames) > 0:
+                combined_frames.extend(new_frames)
+            return combined_frames
         except Exception as e:
             print(f"Error: {e}")
 
@@ -181,7 +214,7 @@ class MainHub:
         roarsegtracker: RoarSegTracker,
         new_frames: list[int],
         past_frames: list[int],
-    ):
+    ) -> list[int]:
         """
         Remakes the key_frame to mask_object dictionary by removing frame that would be generated again by new_frames
         declared for resegmentation
@@ -200,18 +233,19 @@ class MainHub:
                 break
             elif combined_frames[i] == new_frame_queue[0]:
                 new_frame_queue.pop(0)
+                # find next key frame to tracck until
                 if i + 1 < len(combined_frames):
                     end = combined_frames[i + 1]
                 else:
                     end = end_frame_idx
                 for frame in range(combined_frames[i] + 1, end + 1):
-                    if self.track_key_frame_mask_objs.get(frame) is not None:
-                        self.track_key_frame_mask_objs.pop(frame)
+                    if roarsegtracker.get_key_frame_to_masks().get(frame) is not None:
+                        del roarsegtracker.get_key_frame_to_masks()[frame]
 
         return combined_frames
 
     def get_frame(
-        self, frame: int = -1, end_frame_idx: int = -1, start_frame_idx: int = -1
+        self, frame: int = -1, end_frame_idx: int = -1, start_frame_idx: int = -1, socketroom=None
     ):
         """given desired frame, return image at desired frame with generated masks
 
@@ -263,6 +297,7 @@ class MainHub:
                 roar_seg_tracker=roartracker,
                 key_frames=key_frame_arr,
                 end_frame_idx=frame,
+                socketroom=socketroom
             )
 
         self.roarsegtracker.set_curr_key_frame(frame)
@@ -281,7 +316,7 @@ class MainHub:
         return img, img_mask
 
     def track_set_frames(
-        self, roar_seg_tracker, key_frames: list[int] = [], end_frame_idx: int = 0
+        self, roar_seg_tracker, key_frames: list[int] = [], end_frame_idx: int = 0, socketroom=None, job_id=None
     ):
         """Given end frame index, as well as a list of
         key frames, track only the portion starting from first key frame idx to end_frame_index.
@@ -298,9 +333,12 @@ class MainHub:
         frames = list(range(next_key_frame, end_frame_idx + 1))
         curr_frame = frames[0]
         with torch.cuda.amp.autocast():
-            for curr_frame in tqdm(
+            for i, curr_frame in enumerate(tqdm(
                 frames, "Processing frames {} to {}".format(curr_frame, frames[-1])
-            ):
+            )):
+                if socketroom:
+                    progress_socketemit(job_id, i/len(frames), socketroom)
+            
                 frame = rt.get_image(self.photo_dir, curr_frame)
                 if curr_frame == next_key_frame:
                     # start with new tracker for every keyframe to reset weights
@@ -510,33 +548,14 @@ class MainHub:
                         label_to_color=label_to_color,
                         key_frame_arr=key_frame_arr,
                     )
-                    # thread = threading.Thread(target=self.track_set_frames, args=(key_frame_arr, end_frame_idx, roartracker))
                     executor.submit(
                         self.track_set_frames, roartracker, key_frame_arr, end_frame_idx
                     )
-                    # thread.start()
-                    # threads.append(thread)
             except Exception as e:
                 print(f"An exception occurred: {e}")
 
-        # for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
-        #        key_frame = key_frame_queue[i]
-        #        end_frame_idx = key_frame_queue[i + 1]
-        #        key_frame_arr = [key_frame]
-        #        roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
-        #        roartracker.restart_tracker()
-        #        roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},
-        #                                            start_frame_idx=key_frame, end_frame_idx=end_frame_idx,
-        #                                            img_dim=img_dim, label_to_color=label_to_color,
-        #                                            key_frame_arr=key_frame_arr)
-        #        thread = threading.Thread(target=self.track_set_frames, args=(roartracker, key_frame_arr, end_frame_idx))
-        #        thread.start()
-        #        threads.append(thread)
 
-        # for thread in threads:
-        #    thread.join()
-
-    def track(self):
+    def track(self, socketroom=None, job_id=None):
         """
         Main function for tracking
         """
@@ -559,10 +578,10 @@ class MainHub:
         gc.collect()
         frames = list(range(curr_frame, end_frame + 1))
         with torch.cuda.amp.autocast():
-            for curr_frame in tqdm(frames, "Processing frames... "):
-                # if curr_frame % 2187 == 0:
+            for i, curr_frame in enumerate(tqdm(frames, "Processing frames... ")):
+                if socketroom:
+                    progress_socketemit(job_id, i/len(frames), socketroom)
 
-                #     print("day of reckoning")
                 frame = rt.get_image(self.photo_dir, curr_frame)
                 if curr_frame == next_key_frame:
                     # segment
@@ -694,6 +713,7 @@ def create_main_hub(
     job_id: int = -1,
     reseg_bool: bool = False,
     reuse_output: bool = False,
+    new_frames=[],
 ) -> MainHub:
     """Creates MainHub Object
 
@@ -756,8 +776,10 @@ def create_main_hub(
         annotation_dir=(annotation_path if not resegment else reseg_path),
         output_dir=output_dir,
     )
+    main_hub.set_new_frames(new_frames)
     main_hub.set_key_frame_path(key_frame_path)
     main_hub.set_root(main_path)
+    main_hub.set_tracker()
     if resegment:
         main_hub.set_reseg_idx(1)
         new_frames = main_hub.get_new_frames()
@@ -779,9 +801,8 @@ def arg_main(
     threads: int = 1,
     reseg_frames: list[int] = [],
     delete_zip: bool = False,
+    socketroom = None
 ):
-    print("in arg_main")
-
     sam_args["generator_args"] = {
         "points_per_side": 30,
         "pred_iou_thresh": 0.8,
@@ -815,7 +836,6 @@ def arg_main(
         file_handler.make_folder(job_id=job_id)
         file_handler.move_download_to_resegment(job_id=job_id)
     start_time = time.time()
-    # job_id = 262
 
     main_path = os.path.join(root, str(job_id))
     photo_dir = os.path.join(main_path, "images")
@@ -856,7 +876,6 @@ def arg_main(
     reseg_idx = 1
     if resegment:
         resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)
-        repeat = True
         new_frames = reseg_frames
 
         annotations_output = os.path.join(output_dir, "annotations_output")
@@ -890,7 +909,7 @@ def arg_main(
 
     else:
         if not multithread:
-            main_hub.track()
+            main_hub.track(socketroom, job_id)
         else:
             main_hub.multi_trackers()
         key_frame_arr = main_hub.roarsegtracker.get_key_frame_arr()
@@ -898,7 +917,6 @@ def arg_main(
     mid_time = time.time()
     print("storing data...")
     # save annotations
-    # main_hub.store_tracker(frame="3093")
     main_hub.store_key_frames(
         key_frames=key_frame_arr, reseg_idx=reseg_idx, output_dir=key_frame_path
     )

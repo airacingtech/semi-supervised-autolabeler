@@ -1,16 +1,15 @@
 import eventlet
+
 eventlet.monkey_patch()
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
-import base64
+import traceback
 import os
-import os.path as osp
-from itertools import groupby
-from operator import itemgetter
 
-import dataset # https://dataset.readthedocs.io/en/latest/
+import dataset  # https://dataset.readthedocs.io/en/latest/
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_cors import CORS
@@ -31,11 +30,14 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
 app.config.update(
-    CELERY_TASK_SERIALIZER = 'json',
-    CELERY_RESULT_SERIALIZER = 'json',
-    CELERY_ACCEPT_CONTENT=['json'],
-    CELERY_ENABLE_UTC = True)
-socketio = SocketIO(app, message_queue='amqp://', cors_allowed_origins=f"http://{HOST}:{PORT}")
+    CELERY_TASK_SERIALIZER="json",
+    CELERY_RESULT_SERIALIZER="json",
+    CELERY_ACCEPT_CONTENT=["json"],
+    CELERY_ENABLE_UTC=True,
+)
+socketio = SocketIO(
+    app, message_queue="amqp://", cors_allowed_origins=f"http://{HOST}:{PORT}"
+)
 celery = make_celery(app)
 cors = CORS(app, expose_headers=["Content-Disposition"])
 app.config["CORS_HEADERS"] = "Content-Type"
@@ -54,8 +56,9 @@ STATUS_QUEUED = 2
 STATUS_IN_PROGRESS = 3
 STATUS_DONE = 4
 STATUS_FAIL = 5
-db = dataset.connect(os.environ.get('DB_URL'))
-jobs_db = db['jobs']
+db = dataset.connect(os.environ.get("DB_URL"))
+jobs_db = db["jobs"]
+
 
 def get_jobs_from_cvat():
     try:
@@ -65,8 +68,9 @@ def get_jobs_from_cvat():
         print("Error reading " + CVAT_PATH)
         return []
 
+
 for jobid in get_jobs_from_cvat():
-    jobs_db.upsert(dict(id=jobid, status=STATUS_READY), ['id'])
+    jobs_db.upsert(dict(id=jobid, status=STATUS_READY, msg=""), ["id"])
 
 
 @app.route("/")
@@ -75,18 +79,21 @@ def index():
         "index.html", image_url=f"/uploads/{IMAGES[current_image_index]}"
     )
 
+
 @app.route("/celery-status")
 def celery_status():
     inspection = celery.control.inspect()
     scheduled = inspection.scheduled()
     active = inspection.active()
     reserved = inspection.reserved()
-    return jsonify({'active': active, 'scheduled': scheduled, 'reserved':reserved})
+    return jsonify({"active": active, "scheduled": scheduled, "reserved": reserved})
+
 
 @app.route("/clean-jobs")
 def clean_jobs():
     jobs_db.delete()
     return "Cleaned up all jobs"
+
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -94,10 +101,7 @@ def upload_file():
         r = request.form
 
         job_id = int(r.get("jobId"))
-        if TRACKERS.get(job_id) is not None:
-            return f"Tracking job for {job_id} already in progress", 400
-        else:
-            TRACKERS[job_id] = job_id
+        TRACKERS[job_id] = job_id
         if type(r.get("threads")) is str or type(r.get("threads")) is int:
             threads = r["threads"]
             if threads == "":
@@ -108,7 +112,6 @@ def upload_file():
             threads = 1
         reseg_bool = not (r["jobType"] == "initial segmentation")
         reuse_annotation_output = bool(r.get("reuseAnnotation"))
-        delete_zip = bool(r.get("delete_zip"))
         frames = []
 
         if reseg_bool:
@@ -124,43 +127,59 @@ def upload_file():
                 filename = str("{}.zip".format(job_id))
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 if not os.path.exists(UPLOAD_FOLDER):
-                    return "Specified UPLOAD_FOLDER in server does not exist", 400
-
+                    return jsonify(
+                        {
+                            "message": f"Specified UPLOAD_FOLDER in server does not exist {job_id}",
+                            "task_id": -1,
+                        }
+                    )
             else:
                 filename = str(file.filename)
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 if not os.path.exists(UPLOAD_FOLDER):
-                    return "Specified UPLOAD_FOLDER in server does not exist", 400
+                    return jsonify(
+                        {
+                            "message": f"Specified UPLOAD_FOLDER in server does not exist {job_id}",
+                            "task_id": -1,
+                        }
+                    )
                 file.save(filepath)
 
-        task = do_arg_main.delay(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip)
+        task = do_arg_main.delay(
+            job_id, reseg_bool, reuse_annotation_output, threads, frames, socketroom=True
+        )
 
-        jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'])
-        return jsonify({"message": f"Queued job {job_id}", "task_id": task.id })
+        jobs_db.update(dict(id=job_id, status=STATUS_QUEUED, msg=r["jobType"]), ["id"])
+        return jsonify({"message": f"Queued job {job_id}", "task_id": task.id})
 
     except Exception as e:
-        return f"Error while uploading with error: {e}", 400
+        traceback.print_exc()
+        return jsonify({"message": f"Failed to queue {job_id}: {e}", "task_id": -1})
+
 
 @celery.task(name="upload")
-def do_arg_main(job_id, reseg_bool, reuse_annotation_output, threads, frames, delete_zip):
-    jobs_db.update(dict(id=job_id, status=STATUS_IN_PROGRESS), ['id'])
+def do_arg_main(
+    job_id, reseg_bool, reuse_annotation_output, threads, frames, socketroom=None
+):
+    jobs_db.update(dict(id=job_id, status=STATUS_IN_PROGRESS), ["id"])
     try:
-        out = arg_main(
+        arg_main(
             job_id=job_id,
             reseg_bool=reseg_bool,
             reuse_output=reuse_annotation_output,
             threads=threads,
             reseg_frames=frames,
-            delete_zip=delete_zip,
+            socketroom=socketroom
         )
 
         if job_id in TRACKERS:
             TRACKERS.pop(job_id)
 
-        jobs_db.update(dict(id=job_id, status=STATUS_DONE), ['id'])
+        jobs_db.update(dict(id=job_id, status=STATUS_DONE, msg=""), ["id"])
 
     except Exception as e:
-        jobs_db.update(dict(id=job_id, status=STATUS_FAIL), ['id'])
+        print(f"Task failed: {e}")
+        jobs_db.update(dict(id=job_id, status=STATUS_FAIL, msg=str(e)), ["id"])
 
     return job_id
 
@@ -173,8 +192,13 @@ def download_annotation(job_id):
 
     jobs_db.delete(id=job_id, status=STATUS_DONE)
 
-    return send_from_directory(annotation_output, "annotation.zip", as_attachment=True, download_name=f"annotation-{job_id}.zip")
-    
+    return send_from_directory(
+        annotation_output,
+        "annotation.zip",
+        as_attachment=True,
+        download_name=f"annotation-{job_id}.zip",
+    )
+
 
 @app.route("/segment", methods=["POST"])
 def serve_file(filename):
@@ -184,21 +208,32 @@ def serve_file(filename):
 @app.route("/jobs-status", methods=["GET"])
 def get_update():
     jobs = jobs_db.all()
-    status_map = {STATUS_READY: 'ready', STATUS_IN_PROGRESS: 'in_progress', STATUS_DONE: 'done', STATUS_QUEUED: 'queued', STATUS_FAIL: 'failed'}
-    grouped_jobs = {'ready': [], 'done': [], 'in_progress': [], 'queued':[], 'failed':[]}
+    status_map = {
+        STATUS_READY: "ready",
+        STATUS_IN_PROGRESS: "in_progress",
+        STATUS_DONE: "done",
+        STATUS_QUEUED: "queued",
+        STATUS_FAIL: "failed",
+    }
+    grouped_jobs = {
+        "ready": [],
+        "done": [],
+        "in_progress": [],
+        "queued": [],
+        "failed": [],
+    }
 
     curr_uploaded_jobs = jobs_db.find(status=STATUS_READY)
     updated_uploaded_jobs = get_jobs_from_cvat()
     new_jobs = [job for job in updated_uploaded_jobs if job not in curr_uploaded_jobs]
     for jobid in new_jobs:
         if not jobs_db.find_one(id=jobid):
-            jobs_db.upsert(dict(id=jobid, status=STATUS_READY), ['id'])
+            jobs_db.upsert(dict(id=jobid, status=STATUS_READY), ["id"])
 
     for job in jobs:
-        if job['status'] in status_map:
-            grouped_jobs[status_map[job['status']]].append(job['id'])
+        if job["status"] in status_map:
+            grouped_jobs[status_map[job["status"]]].append([job["id"], job["msg"]])
     return jsonify(grouped_jobs)
-
 
 
 def start_client(job_id: int = 0):
@@ -224,9 +259,9 @@ def assign_tracker(formData):
     r = formData
     job_id = -1
 
-    try: 
+    try:
         job_id = int(r.get("jobId"))
-        jobs_db.update(dict(id=job_id, status=STATUS_QUEUED), ['id'])
+        jobs_db.update(dict(id=job_id, status=STATUS_QUEUED, msg=""), ["id"])
         if type(r.get("threads")) is str or type(r.get("threads")) is int:
             threads = r["threads"]
             if threads == "":
@@ -237,7 +272,6 @@ def assign_tracker(formData):
             threads = 1
         reseg_bool = not (r["jobType"] == "initial segmentation")
         reuse_annotation_output = bool(r.get("reuseAnnotation"))
-        delete_zip = bool(r.get("delete_zip"))
         frames = []
 
         if reseg_bool:
@@ -268,10 +302,11 @@ def assign_tracker(formData):
             {"type": "int", "start_frame": start_frame_idx, "end_frame": end_frame_idx},
             room=request.sid,
         )
-        jobs_db.update(dict(id=job_id, status=STATUS_IN_PROGRESS), ['id'])
+
+        jobs_db.update(dict(id=job_id, status=STATUS_IN_PROGRESS, msg="0%"), ["id"])
     except Exception as e:
         print(f"Error in frame_track_start: {e}")
-        jobs_db.update(dict(id=job_id, status=STATUS_FAIL), ['id'])
+        jobs_db.update(dict(id=job_id, status=STATUS_FAIL, msg=str(e)), ["id"])
 
 
 @socketio.on("disconnect")
@@ -291,11 +326,8 @@ def save_tracker(job_id):
         TRACKERS.pop(job_id)
         CLIENTS.pop(request.sid)
     job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
-    annotation_output = os.path.join(job_folder, ANN_OUT)
-    zip_file = os.path.join(annotation_output, "annotation.zip")
 
-    jobs_db.update(dict(id=job_id, status=STATUS_DONE), ['id'])
-    
+    jobs_db.update(dict(id=job_id, status=STATUS_DONE, msg=""), ["id"])
 
 
 @socketio.on("frame_value")
@@ -323,4 +355,4 @@ if __name__ == "__main__":
         os.makedirs(UPLOAD_FOLDER)
 
     print(f"Running on {HOST}:{PORT}")
-    socketio.run(app, host=HOST, port=PORT, debug=False)
+    socketio.run(app, host=HOST, port=PORT, debug=True)

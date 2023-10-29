@@ -49,11 +49,7 @@ class RoarFileHandler():
                                           "{}.zip".format(str(job_id))), "r") as zip_ref:
             for member in zip_ref.namelist():
                 zip_ref.extract(member, self.resegment_path)
-    def delete_zip(self, job_id: int = 0):
-        rm = os.path.join(self.downloads_path, 
-                                          "{}.zip".format(str(job_id)))
-        if os.path.exists(rm):
-            os.remove(rm)
+
     
     def move_download_to_init_segment(self, job_id: int = 0):
         """Move downloaded files to new job folder for first video segmentation tracking.
