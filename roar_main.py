@@ -22,7 +22,6 @@ import time
 
 
 DOWNLOADS_PATH = "/home/roar-apex/cvat/downloads"
-# DOWNLOADS_PATH = "C:/Users/chowm/Downloads"
 sam_args["generator_args"] = {
     "points_per_side": 30,
     "pred_iou_thresh": 0.8,

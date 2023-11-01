@@ -20,6 +20,10 @@ from roar_main import MainHub, arg_main, create_main_hub, save_main_hub
 from tool.roar_tools import numpy_to_base64
 from flask_celery import make_celery
 
+# For the script that clears roar_annotations every couple hours.
+import subprocess
+
+
 PORT = os.environ.get("FLASK_RUN_PORT", 5000)
 HOST = os.environ.get("FLASK_RUN_HOST", "label.roarart.online")
 UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/home/roar-apex/cvat/downloads")
@@ -61,12 +65,27 @@ jobs_db = db["jobs"]
 
 
 def get_jobs_from_cvat():
+    job_files = []
     try:
         with open(CVAT_PATH, "r") as file:
-            return [int(line.strip()[:-4]) for line in file.readlines()]
+            for line in file.readlines():
+                if len(line) < 3:
+                    continue
+                job_zip = line.strip() # eg. 123.zip
+                filepath = os.path.join(UPLOAD_FOLDER, job_zip)
+                if os.path.exists(filepath):
+                    job_files.append(job_zip)
     except Exception as e:
         print("Error reading " + CVAT_PATH)
         return []
+    
+    try:
+        with open(CVAT_PATH, "w") as file:
+            file.writelines(job_files)
+    except Exception as e:
+        print("Error reading " + CVAT_PATH)
+
+    return [int(j[:-4]) for j in job_files]
 
 
 for jobid in get_jobs_from_cvat():
@@ -349,10 +368,22 @@ def get_frame(response):
             room=request.sid,
         )
 
+# Function that kills a subprocess
+def kill_process(proc):
+    print("Killing subprocess")
+    proc.terminate()
+
 
 if __name__ == "__main__":
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
 
-    print(f"Running on {HOST}:{PORT}")
-    socketio.run(app, host=HOST, port=PORT, debug=True)
+    try:
+        # Run the script that would clear the roar_annotations folder once in awhile.
+        proc = subprocess.Popen(["/bin/bash", "server_cleanup.sh"])
+    
+        print(f"Running on {HOST}:{PORT}")
+        socketio.run(app, host=HOST, port=PORT, debug=True)
+
+    finally:
+        kill_process(proc)
