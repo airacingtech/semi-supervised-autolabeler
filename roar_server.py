@@ -65,12 +65,27 @@ jobs_db = db["jobs"]
 
 
 def get_jobs_from_cvat():
+    job_files = []
     try:
         with open(CVAT_PATH, "r") as file:
-            return [int(line.strip()[:-4]) for line in file.readlines()]
+            for line in file.readlines():
+                if len(line) < 3:
+                    continue
+                job_zip = line.strip() # eg. 123.zip
+                filepath = os.path.join(UPLOAD_FOLDER, job_zip)
+                if os.path.exists(filepath):
+                    job_files.append(job_zip)
     except Exception as e:
         print("Error reading " + CVAT_PATH)
         return []
+    
+    try:
+        with open(CVAT_PATH, "w") as file:
+            file.writelines(job_files)
+    except Exception as e:
+        print("Error reading " + CVAT_PATH)
+
+    return [int(j[:-4]) for j in job_files]
 
 
 for jobid in get_jobs_from_cvat():
