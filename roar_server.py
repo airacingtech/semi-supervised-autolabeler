@@ -1,5 +1,7 @@
-import eventlet
-eventlet.monkey_patch()
+###comment out if debugging in vscode is enabled
+# import eventlet
+# eventlet.monkey_patch()
+###
 from flask import Flask, request, render_template, send_from_directory, jsonify, session, redirect, url_for
 from flask_cors import CORS
 import os
@@ -78,6 +80,7 @@ def upload_file():
         if reseg_bool:
             frames = r['frames'].split(",") if r.get('frames') is not None and r.get('frames') != '' else []
             frames = [int(frame) for frame in frames]
+            frames.sort()
         # if not request.files.get('file') and not reuse_annotation_output and reseg_bool:
         #     return 'No file part', 400
         else:
@@ -168,14 +171,17 @@ def assign_tracker(formData):
     if reseg_bool:
         frames = r['frames'].split(",") if r.get('frames') is not None and r.get('frames') != '' else []
         frames = [int(frame) for frame in frames]
+        frames.sort()
     
     
     if TRACKERS.get(job_id) is not None:
         return
     
-    tracker_object = create_main_hub(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output)
+    tracker_object = create_main_hub(job_id=job_id, reseg_bool=reseg_bool, 
+                                     reuse_output=reuse_annotation_output, 
+                                     new_frames=frames)
     main_hub = tracker_object
-    main_hub.set_tracker()
+    
     main_hub.track_key_frame_mask_objs = main_hub.get_roar_seg_tracker().get_key_frame_to_masks()
     end_frame_idx = main_hub.get_roar_seg_tracker().get_end_frame_idx()
     start_frame_idx = main_hub.get_roar_seg_tracker().get_start_frame_idx()
