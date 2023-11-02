@@ -1,3 +1,5 @@
+
+###comment out if debugging in vscode is enabled
 import eventlet
 
 eventlet.monkey_patch()
@@ -7,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import traceback
+
 import os
 
 import dataset  # https://dataset.readthedocs.io/en/latest/
@@ -140,6 +143,11 @@ def upload_file():
                 else []
             )
             frames = [int(frame) for frame in frames]
+
+            frames.sort()
+        # if not request.files.get('file') and not reuse_annotation_output and reseg_bool:
+        #     return 'No file part', 400
+
         else:
             file = request.files.get("file")
             if file is None or file.filename == "":
@@ -291,6 +299,7 @@ def assign_tracker(formData):
             threads = 1
         reseg_bool = not (r["jobType"] == "initial segmentation")
         reuse_annotation_output = bool(r.get("reuseAnnotation"))
+        # delete_zip = bool(r.get('delete_zip'))
         frames = []
 
         if reseg_bool:
@@ -300,15 +309,15 @@ def assign_tracker(formData):
                 else []
             )
             frames = [int(frame) for frame in frames]
-
+            frames.sort()
         if TRACKERS.get(job_id) is not None:
             return
 
         tracker_object = create_main_hub(
-            job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output
+            job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output,
+          new_frames=frames
         )
         main_hub = tracker_object
-        main_hub.set_tracker()
         main_hub.track_key_frame_mask_objs = (
             main_hub.get_roar_seg_tracker().get_key_frame_to_masks()
         )
