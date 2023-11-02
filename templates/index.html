@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ROAR Labeling - Segment and Track</title>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="{{ url_for('static', filename='js/roar_labeler_form.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/roar_labeler_socket_client.js') }}"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/style.css') }}" type="text/css" />
+</head>
+
+<body class="container mt-6">
+    <div class="columns">
+        <div class="column is-11 is-offset-1">
+
+            <h1 class="is-size-1">ROAR Labeling using SAMTrack</h1>
+
+
+
+            <section class="section card job-config-section">
+                <div class="columns">
+
+                    <div class="column">
+
+                        <h3 class="is-size-5">Submit a Job</h3>
+
+                        <form class="form" id="userForm" onsubmit="return onSubmit()" action="/roar_webpage.html"
+                            method="POST" , enctype="multipart/form-data">
+                            Job:
+                            <select name="jobType" id="segmentationDropdown" onchange="updateForm()">
+                                <option value="initial segmentation">Initial Segmentation</option>
+                                <option value="resegmentation">Resegmentation</option>
+                            </select>
+                            <br><br>
+
+                            Job ID: <input id="job_id" yype="number" name="jobId" placeholder="ex. 123"><br><br>
+
+                            Threads: <input id="threads" type="number" name="threads" value="1"><br><br>
+
+                            Reuse Annotation Output: <input id="reuse_annotation_output" type="checkbox"
+                                name="reuseAnnotation"><br/><br/>
+
+                            <div id="framesDiv" style="display:none;">
+                                List of Frame Numbers (comma-separated): <input id="reseg_frames" type="text"
+                                    name="frames" placeholder="ex: 7,9,10 (no spaces)"><br/><br/>
+                                
+                                <p><i>Save and export your job again from CVAT (without checking Save Images), and list the frames you edited above</i></p>
+                                <br/>
+                            </div>
+
+                            <button type="button" id="manual_track_button" class="button is-info" >
+                                Manual Track
+                            </button>
+                            <button type="button" id="auto_track_button" class="button is-info" onClick="onSubmit()">
+                                Automatic Track
+                            </button>
+
+                            <p id="submit-message"></p>
+
+                            <div id="progress-container" class="progress-container">
+                                <!-- <div class="progress-bar" id="progress-123"></div> -->
+                            </div>
+
+                        </form>
+
+                    </div>
+
+                    <div class="column is-three-fifths">
+                        <h3 class="is-size-5">Ready (uploaded from cvat)</h3>
+                        <pre id="uploaded-jobs"></pre>
+
+                        <h3 class="is-size-5">Queued jobs</h3>
+                        <pre id="queued-jobs"></pre>
+
+                        <h3 class="is-size-5">Jobs in progress</h3>
+                        <pre id="inprogress-jobs"></pre>
+
+                        <h3 class="is-size-5 has-text-info">Completed jobs</h3>
+                        <p>Click to download (one-time)</p>
+                        <pre id="completed-jobs"></pre>
+
+                        <h3 class="is-size-5 has-text-danger">Failed jobs</h3>
+                        <pre id="failed-jobs" class="has-text-danger" style="overflow-x: scroll;"></pre>
+
+                        <p>(updates every 5 seconds)</p>
+                    </div>
+
+
+                </div>
+
+            </section>
+
+
+            <section class="section image-display-section" id="image-display" style="display:none;">
+                <h3 class="is-size-5">Manual Tracking for job <span id="manual-track-job-id">#</span></h3>
+
+                <img id="displayImage1" src="{{ image_url }}" width="auto" alt="Image Viewer">
+                <img id="displayImage2" src="{{ image_url }}" width="auto" alt="Image Viewer">
+                <br>
+                <button onclick="backward()" id="backButton">Backward</button>
+                <input type="number" id="frameInput" placeholder="Frame number">
+                <button onclick="forward()" id="forwardButton">Forward</button>
+                <p class="" id="frameRange" ></p>
+                <br><br>
+                <button onclick="saveJob()" id="saveButton" class="button is-info">Mark complete</button>
+                <p id="manual-track-message"></p>
+            </section>
+
+
+        </div>
+    </div>
+
+</body>
+
+
+</html>

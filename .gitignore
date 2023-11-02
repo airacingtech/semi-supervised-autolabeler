@@ -13,3 +13,7 @@ cym_utils
 /aot/pretrain_models
 /aot/datasets
 *.key
+roar_annotations/*
+Pytorch-Correlation-extension/
+jobs.db*
+.env
