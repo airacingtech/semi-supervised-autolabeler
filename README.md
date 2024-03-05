@@ -54,6 +54,38 @@ bash script/download_ckpt.sh
 
 Make sure to configure your `.env` (see `example.env`).
 
+### CUDA Toolkit 12.1
+Make sure when you run
+```
+nvcc --version
+```
+
+it returns that your system is running CUDA Toolkit 12.1
+
+```
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2023 NVIDIA Corporation
+Built on Tue_Feb__7_19:32:13_PST_2023
+Cuda compilation tools, release 12.1, V12.1.66
+Build cuda_12.1.r12.1/compiler.32415258_0
+```
+
+if not follow the instructions here: [https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#post-installation-actions](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#post-installation-actions) and MAKE SURE you specifiy `--toolkit` when running the runfile installer or you will install the CUDA toolkit and the lower level graphics drivers which will likely break your system with a black screen on boot. If you do this accidentally, go to the Additional Drivers tab in Software & Updates in Ubuntu and select the NVIDIA driver that says (proprietary, tested) and reboot. Then run `nvidia-smi` and ensure it does not return an error.
+
+## Start the rabbitmq-server
+Install rabitmq-server
+```
+sudo apt update
+sudo apt install -y erlang
+sudo apt install rabbitmq-server
+```
+
+In your conda environment setup the groundingdino python module
+```
+cd /path/to/roar-seg-and-track-anything/src/groundingdino
+pip install -e .
+```
+
 Start workers in another terminal(s):
 ```bash
 celery -A roar_server.celery worker --loglevel=info -P eventlet -E -n worker1
