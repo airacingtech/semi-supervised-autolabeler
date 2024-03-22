@@ -21,7 +21,7 @@ import threading
 import time
 
 
-DOWNLOADS_PATH = "/home/roar-apex/cvat/downloads"
+DOWNLOADS_PATH = "/home/ekberndt/Downloads"
 # DOWNLOADS_PATH = "C:/Users/chowm/Downloads"
 sam_args['generator_args'] = {
         'points_per_side': 30,
@@ -133,19 +133,45 @@ class MainHub():
     def get_roar_seg_tracker(self) -> RoarSegTracker:
         return self.roarsegtracker
         
-    def setup_reseg_key_frames(self, new_frames: list[int], past_frames: list[int]):
+    def setup_reseg_key_frames(self, new_frames_org: list[int], past_frames: list[int]) -> list[int]:
+        """
+        Generates new combined keyframes given list of old key frames and 
+        list of new key frames to resegment. Ensure in order and no duplicates
+        given that PAST_FRAMES and NEW_FRAMES is in order already
+        
+        Arguments:
+            new_frames (list[int]) : list of new key frames to resegment
+            past_frames (list[int]): list of old key frames to use
+        Returns:
+            list[int]: list of combined key frames in order with no duplicates
+            """
         try:
-            combined_frames = past_frames + new_frames
-            dupes = {}
-            for frame in combined_frames:
-                dupes[frame] = 1
-            frames = list(dupes.keys())
-            frames.sort()
-            return frames
+            # combined_frames = past_frames + new_frames
+            # dupes = {}
+            # for frame in combined_frames:
+            #     dupes[frame] = 1
+            # frames = list(dupes.keys())
+            # frames.sort()
+            # return frames
+            combined_frames = []
+            new_frames = new_frames_org[:]
+            for i in range(len(past_frames)):
+                if len(new_frames) == 0:
+                    combined_frames.append(past_frames[i])
+                elif past_frames[i] > new_frames[0]:
+                    combined_frames.append(new_frames.pop(0))
+                    combined_frames.append(past_frames[i])
+                elif past_frames[i] == new_frames[0]:
+                    combined_frames.append(new_frames.pop(0))
+                else:
+                    combined_frames.append(past_frames[i])
+            if len(new_frames) > 0:
+                combined_frames.extend(new_frames)
+            return combined_frames
         except Exception as e:
             print(f"Error: {e}")
             
-    def remake_key_frames(self, roarsegtracker: RoarSegTracker, new_frames: list[int], past_frames: list[int]):
+    def remake_key_frames(self, roarsegtracker: RoarSegTracker, new_frames: list[int], past_frames: list[int]) -> list[int]:
         """
         Remakes the key_frame to mask_object dictionary by removing frame that would be generated again by new_frames
         declared for resegmentation
@@ -164,13 +190,14 @@ class MainHub():
                 break
             elif combined_frames[i] == new_frame_queue[0]:
                 new_frame_queue.pop(0)
+                #find next key frame to tracck until
                 if i + 1 < len(combined_frames):
                     end = combined_frames[i + 1]
                 else:
                     end = end_frame_idx
                 for frame in range(combined_frames[i] + 1, end + 1):
-                    if self.track_key_frame_mask_objs.get(frame) is not None:
-                        self.track_key_frame_mask_objs.pop(frame)
+                    if roarsegtracker.get_key_frame_to_masks().get(frame) is not None:
+                        del roarsegtracker.get_key_frame_to_masks()[frame]
                         
                 
         return combined_frames
@@ -586,7 +613,7 @@ def save_main_hub(main_hub: MainHub):
     torch.cuda.empty_cache()
     gc.collect()
 def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
-             reseg_bool: bool = False, reuse_output: bool = False) -> MainHub:
+             reseg_bool: bool = False, reuse_output: bool = False, new_frames=[]) -> MainHub:
     """Creates MainHub Object
 
     Args:
@@ -646,8 +673,10 @@ def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args
     main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
                        photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
                        output_dir=output_dir)
+    main_hub.set_new_frames(new_frames)
     main_hub.set_key_frame_path(key_frame_path)
     main_hub.set_root(main_path)
+    main_hub.set_tracker()
     if resegment:
         main_hub.set_reseg_idx(1)
         new_frames = main_hub.get_new_frames()
@@ -685,14 +714,11 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     
     reuse = reuse_output
     file_handler = RoarFileHandler(roar_path=root, downloads_path=DOWNLOADS_PATH)
+    file_handler.make_folder(job_id=job_id)
     if not resegment and not reuse:
-        file_handler.make_folder(job_id=job_id)
         file_handler.move_download_to_init_segment(job_id=job_id)
-    elif not resegment and reuse:
-        file_handler.make_folder(job_id=job_id)
-    else:
-        file_handler.make_folder(job_id=job_id)
-        file_handler.move_download_to_resegment(job_id=job_id)
+    
+    
     start_time = time.time()
     # job_id = 262
     
@@ -711,6 +737,9 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     if not os.path.exists(reseg_dir):
         os.makedirs(reseg_dir)
     reseg_path = os.path.join(reseg_dir, "annotations.xml")
+    
+    if resegment:
+        file_handler.move_download_to_resegment(job_id=job_id)
     
     
     ###If want to reuse previous output annotation

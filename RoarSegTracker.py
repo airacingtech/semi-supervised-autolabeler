@@ -91,7 +91,7 @@ class RoarSegTracker(SegTracker):
         self.img_dim = (img_dim['height'], img_dim['width'])
         self.set_label_to_color(labels_dict)
         self.set_key_frame_to_masks(key_frame_idx_to_mask_objs)
-        self.set_key_frame_arr(list(self.get_key_frame_to_masks().keys()))
+        # self.set_key_frame_arr(list(self.get_key_frame_to_masks().keys()))
         
     def setup_tracker_by_values(self, key_frame_to_masks={}, start_frame_idx: int = 0, 
                                 end_frame_idx: int = 0, img_dim = [], label_to_color= {}, 

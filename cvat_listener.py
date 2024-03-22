@@ -1,4 +1,4 @@
 import os
-root = "/home/roar-apex/cvat/downloads"
+root = "/home/ekberndt/Downloads"
 CVAT_PATH = os.path.join(root, 'updates.txt')
 

@@ -1,5 +1,7 @@
-import eventlet
-eventlet.monkey_patch()
+###comment out if debugging in vscode is enabled
+# import eventlet
+# eventlet.monkey_patch()
+###
 from flask import Flask, request, render_template, send_from_directory, jsonify, session, redirect, url_for
 from flask_cors import CORS
 import os
@@ -18,10 +20,10 @@ secret_key = "no key found"
 with open(keypath, "r") as f:
     secret_key = f.read()
 app.config['SECRET_KEY'] = secret_key  # Change this to a random and secure value
-socketio = SocketIO(app, cors_allowed_origins="https://label.roarart.online:5000")
+socketio = SocketIO(app, cors_allowed_origins="localhost:5000")
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
-UPLOAD_FOLDER = "/home/roar-apex/cvat/downloads"
+UPLOAD_FOLDER = "/home/ekberndt/Downloads"
 # UPLOAD_FOLDER = "C:/Users/chowm/Downloads"
 
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
@@ -49,6 +51,7 @@ def index():
 
 @app.route('/upload', methods=['POST', 'GET'])
 def upload_file():
+    job_id = -1
     try:
         if request.method == 'GET':
             return "Nice try uploading..."
@@ -78,6 +81,7 @@ def upload_file():
         if reseg_bool:
             frames = r['frames'].split(",") if r.get('frames') is not None and r.get('frames') != '' else []
             frames = [int(frame) for frame in frames]
+            frames.sort()
         # if not request.files.get('file') and not reuse_annotation_output and reseg_bool:
         #     return 'No file part', 400
         else:
@@ -110,6 +114,8 @@ def upload_file():
         output = send_from_directory(annotation_output, "annotation.zip", as_attachment=True) if os.path.exists(zip_file) else "No File"
         return output
     except Exception as e:
+        if job_id is not None and job_id in TRACKERS:
+            del TRACKERS[job_id]
         return f"Error while uploading with error: {e}", 400
         # return 'File uploaded successfully'
 
@@ -168,14 +174,17 @@ def assign_tracker(formData):
     if reseg_bool:
         frames = r['frames'].split(",") if r.get('frames') is not None and r.get('frames') != '' else []
         frames = [int(frame) for frame in frames]
+        frames.sort()
     
     
     if TRACKERS.get(job_id) is not None:
         return
     
-    tracker_object = create_main_hub(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output)
+    tracker_object = create_main_hub(job_id=job_id, reseg_bool=reseg_bool, 
+                                     reuse_output=reuse_annotation_output, 
+                                     new_frames=frames)
     main_hub = tracker_object
-    main_hub.set_tracker()
+    
     main_hub.track_key_frame_mask_objs = main_hub.get_roar_seg_tracker().get_key_frame_to_masks()
     end_frame_idx = main_hub.get_roar_seg_tracker().get_end_frame_idx()
     start_frame_idx = main_hub.get_roar_seg_tracker().get_start_frame_idx()
@@ -238,4 +247,4 @@ def get_frame(response):
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    socketio.run(app, host="label.roarart.online", port=5000, debug=False)
+    socketio.run(app, host="localhost", port=5000, debug=True)
