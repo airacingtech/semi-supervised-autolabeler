@@ -426,6 +426,7 @@ def xml_to_masks(filename: str):
     
     masks = []
     # Find keys and cast to correct type
+    # This assumes the data is formated as CVAT 1.1 for Video not CVAT 1.0 for Images
     for track in root.findall('.//track'):
         track_values = [int(track.get(k)) if track.get(k).isdigit() \
             else track.get(k) for k in track_keys]

@@ -22,7 +22,6 @@ import time
 
 
 DOWNLOADS_PATH = "/home/ekberndt/Downloads"
-# DOWNLOADS_PATH = "C:/Users/chowm/Downloads"
 sam_args['generator_args'] = {
         'points_per_side': 30,
         'pred_iou_thresh': 0.8,
@@ -425,7 +424,9 @@ class MainHub():
         """
         self.set_tracker(annontation_dir=self.annotation_dir)
         key_frame_queue = self.roarsegtracker.get_key_frame_arr()[:]
+        start_frame_idx = self.roarsegtracker.start_frame_idx
         end_frame_idx = self.roarsegtracker.end_frame_idx
+        key_frame_queue.append(start_frame_idx)
         key_frame_queue.append(end_frame_idx)
         key_frame_to_masks = self.roarsegtracker.get_key_frame_to_masks()
         
@@ -434,6 +435,7 @@ class MainHub():
         threads = []
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             try:
+                print(f"Labeling from {len(key_frame_queue)} keyframes")
                 for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
                     key_frame = key_frame_queue[i]
                     end_frame_idx = key_frame_queue[i + 1]

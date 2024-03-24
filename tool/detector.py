@@ -22,7 +22,7 @@ class Detector:
 
         checkpoint = torch.load(grounding_dino_ckpt, map_location='cpu')
         log = self.gd.load_state_dict(clean_state_dict(checkpoint['model']), strict=False)
-        print("Model loaded from {} \n => {}".format(grounding_dino_ckpt, log))
+        # print("Model loaded from {} \n => {}".format(grounding_dino_ckpt, log))
         self.gd.eval()
     
     def image_transform_grounding(self, init_image):

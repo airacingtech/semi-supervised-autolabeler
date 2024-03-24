@@ -60,9 +60,11 @@ def upload_file():
         r = request.form
         
         job_id = int(r.get('jobId'))
+        # Check if the job_id is already being tracked
         if TRACKERS.get(job_id) is not None:
             return f"Tracking job for {job_id} already in progress", 400
         else:
+            # Add the job_id to the TRACKERS dictionary
             TRACKERS[job_id] = job_id
         if type(r.get('threads')) is str or type(r.get('threads')) is int:
             threads = r['threads']
