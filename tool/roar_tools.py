@@ -126,6 +126,20 @@ def get_image(photo_dir="", frame_num=0) -> np.array:
             im_frame = Image.open(path_to_file)
             np_frame = np.array(im_frame)
             return np_frame
+        
+def get_image_from_path(path_to_file) -> np.array:
+    """Takes a photo path and returns a numpy array representing the image.
+    
+    Arguments:
+        path_to_file (str): path to the photo.
+        frame_num (int): the frame number to specify the image to search for.
+        
+    Returns:
+        np_frame (np.array): numpy array representing the image with dimensions (h, w, 3)."""
+    im_frame = Image.open(path_to_file)
+    np_frame = np.array(im_frame)
+    return np_frame
+
 def save_prediction(pred_mask,output_dir,file_name):
     save_mask = Image.fromarray(pred_mask.astype(np.uint8))
     save_mask = save_mask.convert(mode='P')
@@ -404,6 +418,7 @@ def xml_to_masks(filename: str):
     stop_frame -- Stop frame of video
     """
     # Find Root
+    print("Opening annotations.xml to parse metadata and mask information")
     tree = ET.parse(filename)
     root = tree.getroot()
     
@@ -417,10 +432,18 @@ def xml_to_masks(filename: str):
         l_color = label.find('color').text
         labels_dict[l_name] = {'color': l_color, 'id': l_id}
     
-    # Get Image dimensions
-    img_dim_root = root.find('.//original_size')
-    img_dim = {'width': int(img_dim_root.find('width').text), 'height':int(img_dim_root.find('height').text)}
+    # Get Image dimensions by loading a random image
+    print("Looking for image dimensions by loading a random image")
+    image_path = os.path.join(os.path.dirname(filename), "images")
+    all_images_paths = os.listdir(image_path)
+    an_image_path = all_images_paths[0]
+    img = Image.open(os.path.join(image_path, an_image_path))
+    img_dim = {'width': img.width, 'height': img.height}
+    # img_dim_root = root.find('.//mask')
+    # img_dim = {'width': int(img_dim_root.attrib['width']), 'height':int(img_dim_root.attrib['height'])}
     
+    # Find mask information
+    print("Parsing mask information")
     track_keys = ['id', 'label']
     mask_keys = ['frame', 'rle', 'left', 'top', 'width', 'height']
     

@@ -483,7 +483,6 @@ class MainHub():
         """
         Main function for tracking
         """
-        
         #start at first annotated frame
         self.set_tracker(annontation_dir=self.annotation_dir)
         start_frame = self.roarsegtracker.start_frame_idx
@@ -496,19 +495,25 @@ class MainHub():
                 next_key_frame = key_frame_queue.pop(0)
             curr_frame = next_key_frame
         self.roarsegtracker.set_curr_key_frame(curr_frame)
-                
-        
         
         #cuda 
         torch.cuda.empty_cache()
         gc.collect()
         frames = list(range(curr_frame, end_frame+1))
+        
+        # Load all images paths and sort them
+        image_path = os.path.join(os.path.dirname(self.annotation_dir), "images")
+        all_images_paths = os.listdir(image_path)
+        all_images_paths.sort()
+
+        # Enable Automatic Mixed Precision (AMP) for faster inference which
+        # requires less memory by performing operations in FP16 precision where possible
         with torch.cuda.amp.autocast():
             for curr_frame in tqdm(frames, "Processing frames... "):
-                # if curr_frame % 2187 == 0:
-                    
-                #     print("day of reckoning")
-                frame = rt.get_image(self.photo_dir, curr_frame)
+                # frame = rt.get_image(self.photo_dir, curr_frame)
+                frame_path = all_images_paths[curr_frame]
+                full_frame_path = os.path.join(os.path.dirname(self.annotation_dir), "images", frame_path)
+                frame = rt.get_image_from_path(full_frame_path)
                 if curr_frame == next_key_frame:
                     #segment
                     #get new mask and tracking objects
@@ -527,9 +532,7 @@ class MainHub():
                     #TODO: create mask object from pred_mask
                     self.track_key_frame_mask_objs[curr_frame] = \
                         self.roarsegtracker.get_key_frame_to_masks()[curr_frame]
-                        
-                        
-                        
+                    
                     #TODO: add curr version of tracker to serialized save file in case of mem crash or seg fault
                     #cuda
                     torch.cuda.empty_cache()
@@ -753,7 +756,7 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     main_hub = MainHub(segtracker_args=segtracker_args, sam_args=sam_args, aot_args=aot_args, 
                        photo_dir=photo_dir, annotation_dir=(annotation_path if not resegment else reseg_path), 
                        output_dir=output_dir)
-    # main_hub.set_key_frame_path(key_frame_path)
+    # main_hub.set_key_frame_path(key_fraSegTracker hasme_path)
     start_time = time.time() 
     
     #start tracking
@@ -795,6 +798,7 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
                 
     else:
         if not multithread:
+            # Run single threaded tracking
             main_hub.track()  
         else:
             main_hub.multi_trackers()

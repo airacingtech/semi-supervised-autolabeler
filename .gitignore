@@ -191,3 +191,6 @@ roar_annotations/*
 *.db
 *.db-shm
 *.db-wal
+
+# Pytorch-Correlation-extension
+/Pytorch-Correlation-extension/

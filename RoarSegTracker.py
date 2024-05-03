@@ -31,6 +31,7 @@ class RoarSegTracker(SegTracker):
         self.img_dim = (1920, 1080)
         # self.tracker_no_work = []
         self.blacklist = "HUD"
+        self.annotation_dir = ""
         super().__init__(segtracker_args, sam_args, aot_args)
     
     def set_label_to_color(self, label_to_color):
@@ -82,6 +83,8 @@ class RoarSegTracker(SegTracker):
         '''
         if annotation_dir == "":
             return
+        self.annotation_dir = annotation_dir
+        # Create masks from annotations.xml file
         masks, labels_dict, img_dim, start_frame, stop_frame = rt.xml_to_masks(annotation_dir)
         key_frame_idx_to_mask_objs = rt.masks_to_mask_objects(masks, 
                                                               labels_dict, img_dim, int(start_frame), 
