@@ -119,9 +119,10 @@ def get_image(photo_dir="", frame_num=0) -> np.array:
         
     Returns:
         np_frame (np.array): numpy array representing the image with dimensions (h, w, 3)."""
-    pattern = r'(frame_0*' + str(frame_num) + r'(\.jpg|\.jpeg|\.png|\.PNG|\.bmp))'
+    pattern1 = r'(frame_0*' + str(frame_num) + r'(\.jpg|\.jpeg|\.png|\.PNG|\.bmp))'
+    pattern2 = r'(Image_0*' + str(frame_num) + r'.*(\.jpg|\.jpeg|\.png|\.PNG|\.bmp))'
     for filename in os.listdir(photo_dir):
-        if re.match(pattern, filename):
+        if re.match(pattern1, filename) or re.match(pattern2, filename):
             path_to_file = os.path.join(photo_dir, filename)
             im_frame = Image.open(path_to_file)
             np_frame = np.array(im_frame)
@@ -394,11 +395,12 @@ def img_to_mask(img: np.array) -> tuple:
     
 #     return (np.array(rle), width, height, rmin, cmin, img.shape)
 
-def xml_to_masks(filename: str):
+def xml_to_masks(annotations : str, img_dir : str):
     """Parse Annotations.xml file from CVAT for mask recreation.
     
     Parameters:
-    filename -- Name of Annotations.xml file
+    annotations -- Path to annotations.xml file
+    img_dir -- Directory containing images for job
     
     Returns:
     masks -- List of dicts with mask frame, run length encoding, left, top, width, height
@@ -419,7 +421,7 @@ def xml_to_masks(filename: str):
     """
     # Find Root
     print("Opening annotations.xml to parse metadata and mask information")
-    tree = ET.parse(filename)
+    tree = ET.parse(annotations)
     root = tree.getroot()
     
     start_frame = root.find('.//start_frame').text
@@ -434,13 +436,10 @@ def xml_to_masks(filename: str):
     
     # Get Image dimensions by loading a random image
     print("Looking for image dimensions by loading a random image")
-    image_path = os.path.join(os.path.dirname(filename), "images")
-    all_images_paths = os.listdir(image_path)
+    all_images_paths = os.listdir(img_dir)
     an_image_path = all_images_paths[0]
-    img = Image.open(os.path.join(image_path, an_image_path))
+    img = Image.open(os.path.join(img_dir, an_image_path))
     img_dim = {'width': img.width, 'height': img.height}
-    # img_dim_root = root.find('.//mask')
-    # img_dim = {'width': int(img_dim_root.attrib['width']), 'height':int(img_dim_root.attrib['height'])}
     
     # Find mask information
     print("Parsing mask information")
@@ -490,6 +489,11 @@ import json
 
 def masks_to_xml_with_key_frame():
     return
+
+def setuo_xml_template():
+    """Sets up the XML template for the annotations file so it can be written to later
+    
+    """
 def masks_to_xml(frame_masks: dict[int, dict[int, MaskObject]], start_frame: int, stop_frame: int, output_filename: str) -> str:
     """Takes a dictionary of frame to mask objects and writes Annotations XML file.
 

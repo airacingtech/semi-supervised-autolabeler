@@ -308,7 +308,7 @@ class MainHub():
                 #TODO: create mask object from pred_mask
                     pred_mask = roar_seg_tracker.track(frame, update_memory=True)
 
-                    test_pred_mask = np.unique(pred_mask)
+                    # test_pred_mask = np.unique(pred_mask)
                     with self.lock:
                         self.track_key_frame_mask_objs[curr_frame] = \
                             roar_seg_tracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
@@ -500,10 +500,18 @@ class MainHub():
         torch.cuda.empty_cache()
         gc.collect()
         frames = list(range(curr_frame, end_frame+1))
+
+        # Find image_dir - TODO: make this a function
+        annotation_parent_dir = os.path.basename(os.path.dirname(self.annotation_dir))
+        if annotation_parent_dir != 'resegment_annotations':
+            # Initial Segmentation
+            img_dir = os.path.join(os.path.dirname(self.annotation_dir), "images")
+        else:
+            # Resegmentation
+            img_dir = os.path.join(os.path.dirname(os.path.dirname(self.annotation_dir)), "images")
         
         # Load all images paths and sort them
-        image_path = os.path.join(os.path.dirname(self.annotation_dir), "images")
-        all_images_paths = os.listdir(image_path)
+        all_images_paths = os.listdir(img_dir)
         all_images_paths.sort()
 
         # Enable Automatic Mixed Precision (AMP) for faster inference which
@@ -512,7 +520,7 @@ class MainHub():
             for curr_frame in tqdm(frames, "Processing frames... "):
                 # frame = rt.get_image(self.photo_dir, curr_frame)
                 frame_path = all_images_paths[curr_frame]
-                full_frame_path = os.path.join(os.path.dirname(self.annotation_dir), "images", frame_path)
+                full_frame_path = os.path.join(img_dir, frame_path)
                 frame = rt.get_image_from_path(full_frame_path)
                 if curr_frame == next_key_frame:
                     #segment
@@ -793,9 +801,6 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
         key_frame_arr.sort()
         main_hub.resegment_track(past_key_frames=resegment_key_frames, new_frames=new_frames,
                                  multithreading=multithread)
-        
-        
-                
     else:
         if not multithread:
             # Run single threaded tracking
@@ -973,8 +978,3 @@ def main():
   
 if __name__ == "__main__":
     main()
-                
-        
-                    
-    
-                
