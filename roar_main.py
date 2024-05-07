@@ -19,7 +19,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from roar_file_handler import RoarFileHandler
 import threading
 import time
-
+from collections import deque
 
 DOWNLOADS_PATH = "/home/ekberndt/Downloads"
 sam_args['generator_args'] = {
@@ -188,7 +188,7 @@ class MainHub():
             if len(new_frame_queue) == 0:
                 break
             elif combined_frames[i] == new_frame_queue[0]:
-                new_frame_queue.pop(0)
+                new_frame_queue.pop()
                 #find next key frame to tracck until
                 if i + 1 < len(combined_frames):
                     end = combined_frames[i + 1]
@@ -317,7 +317,7 @@ class MainHub():
                 torch.cuda.empty_cache()
                 gc.collect()
     def resegment_track(self, past_key_frames: list[int] =[], 
-                        new_frames: list[int] = [], multithreading: bool = False, custom_end_frame_idx: int = 0):
+                        new_frames: deque[int] = deque(), multithreading: bool = False, custom_end_frame_idx: int = 0):
         """Resegmentation tracker function. Expects that multi_track or 
         track has been run on CVAT job before calling this function.
         Takes new frames inputed by user which are resegmented by user in 
@@ -369,7 +369,7 @@ class MainHub():
         
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             try:
-                new_frame = new_frames.pop(0)
+                new_frame = new_frames.popleft()
                 for frame in tqdm(past_key_frames, "Processing new frame to past key frames: "):
                     if frame > new_frame:
                         
@@ -385,7 +385,8 @@ class MainHub():
                         
                         executor.submit(self.track_set_frames, roartracker, key_frame_arr, frame)
                         if len(new_frames) > 0:
-                            new_frame = new_frames.pop(0)
+                            # new_frame = new_frames.pop(0)
+                            new_frame = new_frames.popleft()
                         else:
                             new_frame = None
                             break
@@ -426,10 +427,10 @@ class MainHub():
         key_frame_queue = self.roarsegtracker.get_key_frame_arr()[:]
         start_frame_idx = self.roarsegtracker.start_frame_idx
         end_frame_idx = self.roarsegtracker.end_frame_idx
-        key_frame_queue.append(start_frame_idx)
+        # key_frame_queue.append(start_frame_idx)
         key_frame_queue.append(end_frame_idx)
         key_frame_to_masks = self.roarsegtracker.get_key_frame_to_masks()
-        
+        self.track_key_frame_mask_objs = key_frame_to_masks
         img_dim = self.roarsegtracker.get_img_dim()
         label_to_color = self.roarsegtracker.get_label_to_color()
         threads = []
@@ -439,6 +440,12 @@ class MainHub():
                 for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
                     key_frame = key_frame_queue[i]
                     end_frame_idx = key_frame_queue[i + 1]
+                    # Skip if there are no unlabeled frames between start frame and end_frame
+                    # meaning there are two labeled frames next to each other and we don't need to run the tracker
+
+                    if key_frame + 1 == end_frame_idx:
+                        continue
+                    
                     if end_frame_idx != key_frame_queue[-1]:
                             end_frame_idx -= 1
                     key_frame_arr = [key_frame]
@@ -483,16 +490,17 @@ class MainHub():
         """
         Main function for tracking
         """
+        #TODO: fix tracker to check unlabeled frames between start and end labeled frame to track
         #start at first annotated frame
         self.set_tracker(annontation_dir=self.annotation_dir)
         start_frame = self.roarsegtracker.start_frame_idx
         end_frame = self.roarsegtracker.end_frame_idx
-        key_frame_queue = self.roarsegtracker.get_key_frame_arr()[:]
-        next_key_frame = key_frame_queue.pop(0)
+        key_frame_queue: deque[int] = deque(self.roarsegtracker.get_key_frame_arr())
+        next_key_frame = key_frame_queue.popleft()
         curr_frame = self.roarsegtracker.get_key_frame_arr()[0]
         if curr_frame != next_key_frame:
             while curr_frame > next_key_frame:
-                next_key_frame = key_frame_queue.pop(0)
+                next_key_frame = key_frame_queue.popleft()
             curr_frame = next_key_frame
         self.roarsegtracker.set_curr_key_frame(curr_frame)
         
@@ -522,7 +530,10 @@ class MainHub():
                 frame_path = all_images_paths[curr_frame]
                 full_frame_path = os.path.join(img_dir, frame_path)
                 frame = rt.get_image_from_path(full_frame_path)
-                if curr_frame == next_key_frame:
+                if curr_frame == next_key_frame and \
+                    ((key_frame_queue[0] - next_key_frame) <= 1):
+                    continue
+                elif curr_frame == next_key_frame:
                     #segment
                     #get new mask and tracking objects
                     self.roarsegtracker.new_tracker()
@@ -548,7 +559,7 @@ class MainHub():
                     test_pred = np.unique(pred_mask)
                     self.roarsegtracker.add_reference_with_label(frame, pred_mask)
                     if len(key_frame_queue) > 0:
-                        next_key_frame = key_frame_queue.pop(0)
+                        next_key_frame = key_frame_queue.popleft()
                 elif curr_frame % self.roarsegtracker.sam_gap == 0 and self.use_sam_gap:
                     #resegment on sam gap
                     pass
@@ -774,8 +785,7 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     reseg_idx = 1
     if resegment:
         resegment_key_frames, reseg_idx = main_hub.get_key_frames(key_frame_path)
-        repeat = True
-        new_frames = reseg_frames
+        new_frames = deque(reseg_frames)
         
         annotations_output = os.path.join(output_dir, "annotations_output")
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")

@@ -249,4 +249,4 @@ def get_frame(response):
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    socketio.run(app, host="localhost", port=5000, debug=True)
+    socketio.run(app, host="localhost", port=5000, debug=False)

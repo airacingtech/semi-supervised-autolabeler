@@ -455,6 +455,7 @@ def xml_to_masks(annotations : str, img_dir : str):
         mask_values = [int(track.find('mask').get(k)) if track.find('mask').get(k).isdigit() \
             else np.array(track.find('mask').get(k).split(', ')).astype(int) for k in mask_keys]
         masks.append(dict(zip(track_keys + mask_keys,track_values + mask_values)))
+    print("Finished parsing annotations")
     
     return masks, labels_dict, img_dim, start_frame, stop_frame
 
