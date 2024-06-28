@@ -14,3 +14,7 @@ python roar_server.py
 
 # Debugging
 When debugging be aware that errors thrown will be shown in the web console of the browser (by pressing F12 and going to the console tab). The errors will be shown in the console tab of the browser and not in the terminal where the server is running. 
+
+# TODO
+- [ ] Remove BERT
+- [ ] Add error message if user uploads a CVAT Images 1.1 file instead of a CVAT Video 1.1 file

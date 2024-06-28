@@ -455,6 +455,11 @@ def xml_to_masks(annotations : str, img_dir : str):
         mask_values = [int(track.find('mask').get(k)) if track.find('mask').get(k).isdigit() \
             else np.array(track.find('mask').get(k).split(', ')).astype(int) for k in mask_keys]
         masks.append(dict(zip(track_keys + mask_keys,track_values + mask_values)))
+    
+    # Check if masks are empty (meaning the wrong format may have been used)
+    if len(masks) == 0:
+        raise ValueError("No masks found. Please ensure the correct format is used. " + \
+            "NOTE: This function is designed for CVAT 1.1 for Video, not CVAT 1.0 for Images")
     print("Finished parsing annotations")
     
     return masks, labels_dict, img_dim, start_frame, stop_frame

@@ -31,7 +31,7 @@ class RoarSegTracker(SegTracker):
         self.curr_key_frame_idx = self.start_frame_idx
         self.img_dim = (1920, 1080)
         # self.tracker_no_work = []
-        self.blacklist = "HUD"
+        self.blacklist = "HUD" # TODO remove this
 
         super().__init__(segtracker_args, sam_args, aot_args)
     

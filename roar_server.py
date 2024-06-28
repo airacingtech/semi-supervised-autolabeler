@@ -23,8 +23,8 @@ app.config['SECRET_KEY'] = secret_key  # Change this to a random and secure valu
 socketio = SocketIO(app, cors_allowed_origins="localhost:5000")
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
+#TODO: make this a config file / not hard coded
 UPLOAD_FOLDER = "/home/ekberndt/Downloads"
-# UPLOAD_FOLDER = "C:/Users/chowm/Downloads"
 
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
 ANN_OUT = os.path.join("output", "annotations_output")
@@ -118,7 +118,8 @@ def upload_file():
     except Exception as e:
         if job_id is not None and job_id in TRACKERS:
             del TRACKERS[job_id]
-        return f"Error while uploading with error: {e}", 400
+        print(f"ERROR WHILE UPLOADING WITH ERROR: {e}")
+        return f"ERROR WHILE UPLOADING WITH ERROR: {e}", 400
         # return 'File uploaded successfully'
 
 @app.route('/segment', methods=['POST'])
@@ -247,6 +248,7 @@ def get_frame(response):
         }, room=request.sid)
     
 if __name__ == '__main__':
+    print("Starting server...")
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
     socketio.run(app, host="localhost", port=5000, debug=False)
