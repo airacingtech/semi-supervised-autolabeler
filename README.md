@@ -1,4 +1,8 @@
-# CVAT Instance Segmentation Tracker
+# Transform every 100 Key Frames into Thousands of Labeled Images: Effortless Labeled Segmented Image Datasets from Video with ROAR-SAMT and CVAT Integration
+
+Transforming video annotation from tedious manual work to effortless automation, the CVAT Instance Segmentation Tracker leverages cutting-edge technology from OpenCV and SAM-Track to enable seamless tracking of segmented objects across video frames. By integrating with CVAT and utilizing SAM-Track's real-time segmentation capabilities, this tool accelerates the creation of labeled datasets from videos, enhancing efficiency and accuracy in object detection training. Ideal for teams needing to scale their annotation processes, it empowers users to automate the creation of thousands of labeled images from a small set of human labeled key frames.
+
+### CVAT Instance Segmentation Tracker
 
 Jump to [running the server](#running-the-server)
 
