@@ -5,7 +5,7 @@ from sam.segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 from aot_tracker import get_aot
 import numpy as np
 from tool.segmentor import Segmentor
-from tool.detector import Detector
+# from tool.detector import Detector
 from tool.transfer_tools import draw_outline, draw_points
 import tool.roar_tools as rt
 import cv2
@@ -24,7 +24,7 @@ class SegTracker():
         """
         self.sam = Segmentor(sam_args)
         self.tracker = get_aot(aot_args)
-        self.detector = Detector(self.sam.device)
+        # self.detector = Detector(self.sam.device)
         self.sam_gap = segtracker_args['sam_gap']
         self.min_area = segtracker_args['min_area']
         self.max_obj_num = segtracker_args['max_obj_num']

@@ -20,8 +20,9 @@ from roar_file_handler import RoarFileHandler
 import threading
 import time
 from collections import deque
+import roar_config as rcvars
 
-DOWNLOADS_PATH = "/home/ekberndt/Downloads"
+DOWNLOADS_PATH = rcvars.DOWNLOADS_PATH
 sam_args['generator_args'] = {
         'points_per_side': 30,
         'pred_iou_thresh': 0.8,
@@ -37,13 +38,21 @@ segtracker_args = {
 'max_obj_num': 255, # maximal object number to track in a video
 'min_new_obj_iou': 0.8, # the area of a new object in the background should > 80% 
 }
+
+from flask_socketio import SocketIO
+def progress_socketemit(job_id, percent, room):
+    socketio = SocketIO(message_queue='amqp://')
+    # socketio.emit("job_progress", {"job_id": job_id, percent: percent}, room=room)
+    socketio.emit("job_progress", {"job_id": job_id, "percent": percent})
 class MainHub():
     """
     Main hub class for RoarSegTracker
     
     Class structure of main for use of RoarSegTracker
     """
+    
     MAX_WORKERS = 3
+    
     def __init__(self, segtracker_args={}, sam_args={}, aot_args={}, photo_dir="", 
                  annotation_dir="", output_dir=""):
         self.segtracker_args = segtracker_args
@@ -486,7 +495,7 @@ class MainHub():
                     
         
             
-    def track(self):
+    def track(self, socketroom=None, job_id=None):
         """
         Main function for tracking
         """
@@ -525,7 +534,9 @@ class MainHub():
         # Enable Automatic Mixed Precision (AMP) for faster inference which
         # requires less memory by performing operations in FP16 precision where possible
         with torch.cuda.amp.autocast():
-            for curr_frame in tqdm(frames, "Processing frames... "):
+            for i, curr_frame in enumerate(tqdm(frames, "Processing frames... ")):
+                if socketroom:
+                    progress_socketemit(job_id, i / len(frames), curr_frame)
                 # frame = rt.get_image(self.photo_dir, curr_frame)
                 frame_path = all_images_paths[curr_frame]
                 full_frame_path = os.path.join(img_dir, frame_path)
@@ -711,7 +722,8 @@ def create_main_hub(sam_args=sam_args, segtracker_args=segtracker_args, aot_args
     
 def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_args, job_id: int = -1, 
              reseg_bool: bool = False, reuse_output: bool = False, threads: int = 1, 
-             reseg_frames: list[int] = [], delete_zip: bool = False):
+             reseg_frames: list[int] = [], delete_zip: bool = False,
+             socketroom = None):
     
     sam_args['generator_args'] = {
         'points_per_side': 30,
@@ -814,7 +826,7 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     else:
         if not multithread:
             # Run single threaded tracking
-            main_hub.track()  
+            main_hub.track(socketroom=socketroom, job_id=job_id)  
         else:
             main_hub.multi_trackers()
         key_frame_arr = main_hub.roarsegtracker.get_key_frame_arr()
