@@ -21,7 +21,7 @@ import threading
 import time
 from collections import deque
 import roar_config as rcvars
-
+                                                               
 DOWNLOADS_PATH = rcvars.DOWNLOADS_PATH
 sam_args['generator_args'] = {
         'points_per_side': 30,
@@ -244,7 +244,7 @@ class MainHub():
             #set key frame
             roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
             key_frame = tWalker
-            key_frame_arr = [key_frame]
+            key_frame_arr = deque([key_frame])
             label_to_color = self.roarsegtracker.get_label_to_color()
             roartracker.restart_tracker()
             roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: self.track_key_frame_mask_objs[key_frame]},  
@@ -267,7 +267,7 @@ class MainHub():
         return img, img_mask
     
     
-    def track_set_frames(self, roar_seg_tracker, key_frames: list[int] = [], end_frame_idx: int = 0):
+    def track_set_frames(self, roar_seg_tracker, key_frames: deque[int] = deque(), end_frame_idx: int = 0):
         """Given end frame index, as well as a list of 
         key frames, track only the portion starting from first key frame idx to end_frame_index.
         Destructive method so copy key frame list if needed.
@@ -278,7 +278,7 @@ class MainHub():
             end_frame_idx (int, optional): ending frame index; must be equal to or greater than 
             greatest key frame index value. Defaults to 0.
         """
-        next_key_frame = key_frames.pop(0)
+        next_key_frame = key_frames.popleft()
         assert next_key_frame < end_frame_idx
         frames = list(range(next_key_frame, end_frame_idx + 1))
         curr_frame = frames[0]
@@ -308,7 +308,7 @@ class MainHub():
                     roar_seg_tracker.add_reference_with_label(frame, pred_mask)
                     
                     if len(key_frames) > 0:
-                        next_key_frame = key_frames.pop(0)
+                        next_key_frame = key_frames.popleft()
                     
                 elif curr_frame % self.roarsegtracker.sam_gap == 0 and self.use_sam_gap:
                     pass
@@ -350,30 +350,7 @@ class MainHub():
             custom_end_frame_idx == 0 else custom_end_frame_idx
         # past_key_frames.append(end_frame_idx) #last key frame goes to end of video
         self.track_key_frame_mask_objs = self.roarsegtracker.get_key_frame_to_masks()
-        # new_frame = new_frames.pop(0)
-        # for frame in past_key_frames:
-        #     if frame > new_frame:
-        #         try:
-        #             key_frame_arr = [new_frame]
-        #             roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
-        #             roartracker.restart_tracker()
-        #             roartracker.setup_tracker_by_values(key_frame_to_masks=\
-        #                 {new_frame: self.track_key_frame_mask_objs[new_frame]},  
-        #                                                 start_frame_idx=new_frame, end_frame_idx=frame, 
-        #                                                 img_dim=self.roarsegtracker.get_img_dim(), 
-        #                                                 label_to_color=self.roarsegtracker.get_label_to_color(),
-        #                                                 key_frame_arr=key_frame_arr)
-        #             self.track_set_frames(roartracker, 
-        #                             key_frames=key_frame_arr, end_frame_idx=frame)
-        #             if len(new_frames) > 0:
-        #                 new_frame = new_frames.pop(0)
-        #             else:
-        #                 break
-        #         except Exception as e:
-        #             print(e)
-        #             # print(traceback.format_exc())
-        #             print(f"Skipping frame {frame} due to exception")
-        #             continue
+       
         
         
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -382,7 +359,7 @@ class MainHub():
                 for frame in tqdm(past_key_frames, "Processing new frame to past key frames: "):
                     if frame > new_frame:
                         
-                        key_frame_arr = [new_frame]
+                        key_frame_arr = deque([new_frame])
                         roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
                         roartracker.restart_tracker()
                         roartracker.setup_tracker_by_values(key_frame_to_masks=\
@@ -400,7 +377,7 @@ class MainHub():
                             new_frame = None
                             break
                 if new_frame is not None:
-                    key_frame_queue = [new_frame] + new_frames
+                    key_frame_queue = [new_frame] + list(new_frames)
                     assert end_frame_idx > key_frame_queue[-1]
                     key_frame_queue.append(end_frame_idx)
                     for i in tqdm(range(len(key_frame_queue) - 1), 
@@ -409,7 +386,7 @@ class MainHub():
                         end_frame_idx = key_frame_queue[i + 1]
                         if end_frame_idx != key_frame_queue[-1]:
                             end_frame_idx -= 1
-                        key_frame_arr = [key_frame]
+                        key_frame_arr = deque([key_frame])
                         roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
                         roartracker.restart_tracker()
                         roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: 
@@ -452,12 +429,12 @@ class MainHub():
                     # Skip if there are no unlabeled frames between start frame and end_frame
                     # meaning there are two labeled frames next to each other and we don't need to run the tracker
 
-                    if key_frame + 1 == end_frame_idx:
+                    if key_frame + 1 == end_frame_idx: #no ungenerated frames between key_frame and end_frame
                         continue
                     
                     if end_frame_idx != key_frame_queue[-1]:
-                            end_frame_idx -= 1
-                    key_frame_arr = [key_frame]
+                            end_frame_idx -= 1 #dont generate into next key frame since end frame is inclusive
+                    key_frame_arr = deque([key_frame])
                     roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
                     roartracker.restart_tracker()
                     roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},  
@@ -472,22 +449,7 @@ class MainHub():
                 print(f"An exception occurred: {e}")
                 
                 
-        #for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
-        #        key_frame = key_frame_queue[i]
-        #        end_frame_idx = key_frame_queue[i + 1]
-        #        key_frame_arr = [key_frame]
-        #        roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
-        #        roartracker.restart_tracker()
-        #        roartracker.setup_tracker_by_values(key_frame_to_masks={key_frame: key_frame_to_masks[key_frame]},  
-        #                                            start_frame_idx=key_frame, end_frame_idx=end_frame_idx, 
-        #                                            img_dim=img_dim, label_to_color=label_to_color, 
-        #                                            key_frame_arr=key_frame_arr)
-        #        thread = threading.Thread(target=self.track_set_frames, args=(roartracker, key_frame_arr, end_frame_idx))
-        #        thread.start()
-        #        threads.append(thread)
-        
-        #for thread in threads:
-        #    thread.join()
+     
         
         
         
@@ -505,12 +467,12 @@ class MainHub():
         start_frame = self.roarsegtracker.start_frame_idx
         end_frame = self.roarsegtracker.end_frame_idx
         key_frame_queue: deque[int] = deque(self.roarsegtracker.get_key_frame_arr())
+        if len(key_frame_queue) == 0:
+            raise ValueError("No annotated frames found.")
+        
+        curr_frame = key_frame_queue[0]
         next_key_frame = key_frame_queue.popleft()
-        curr_frame = self.roarsegtracker.get_key_frame_arr()[0]
-        if curr_frame != next_key_frame:
-            while curr_frame > next_key_frame:
-                next_key_frame = key_frame_queue.popleft()
-            curr_frame = next_key_frame
+        
         self.roarsegtracker.set_curr_key_frame(curr_frame)
         
         #cuda 
@@ -534,63 +496,61 @@ class MainHub():
         # Enable Automatic Mixed Precision (AMP) for faster inference which
         # requires less memory by performing operations in FP16 precision where possible
         with torch.cuda.amp.autocast():
-            for i, curr_frame in enumerate(tqdm(frames, "Processing frames... ")):
+            for i, curr_frame in enumerate(tqdm(frames, "Processing frames tldr... ")):
                 if socketroom:
                     progress_socketemit(job_id, i / len(frames), curr_frame)
                 # frame = rt.get_image(self.photo_dir, curr_frame)
                 frame_path = all_images_paths[curr_frame]
                 full_frame_path = os.path.join(img_dir, frame_path)
                 frame = rt.get_image_from_path(full_frame_path)
+                #dont generate next frame if next frame is already made (annotated frame)
                 if curr_frame == next_key_frame and \
+                    len(key_frame_queue) > 0 and \
                     ((key_frame_queue[0] - next_key_frame) <= 1):
                     continue
-                elif curr_frame == next_key_frame:
+                elif curr_frame == next_key_frame: #set up tracker with manual key frame to generate msks and track
                     #segment
-                    #get new mask and tracking objects
+                    #get new mask and tracking objects and clear garbage
                     self.roarsegtracker.new_tracker()
                     self.roarsegtracker.restart_tracker()
                     torch.cuda.empty_cache()
                     gc.collect()
                     
                     pred_mask = self.get_segmentations(key_frame_idx=curr_frame)
-                    # if curr_frame == 2187:
-                    #     plt.imshow(pred_mask)
-                    #     plt.show()
+    
                     
                     self.roarsegtracker.set_curr_key_frame(next_key_frame)
                     
-                    #TODO: create mask object from pred_mask
+                    #set mask object dict for this frame
                     self.track_key_frame_mask_objs[curr_frame] = \
                         self.roarsegtracker.get_key_frame_to_masks()[curr_frame]
                     
-                    #TODO: add curr version of tracker to serialized save file in case of mem crash or seg fault
+                   
                     #cuda
                     torch.cuda.empty_cache()
                     gc.collect()
-                    test_pred = np.unique(pred_mask)
+
                     self.roarsegtracker.add_reference_with_label(frame, pred_mask)
                     if len(key_frame_queue) > 0:
                         next_key_frame = key_frame_queue.popleft()
                 elif curr_frame % self.roarsegtracker.sam_gap == 0 and self.use_sam_gap:
-                    #resegment on sam gap
+                    #resegment on sam gap, not currently used
                     pass
-                else:
-                    #TODO: create mask object from pred_mask
+                else: #generate new masks from tracker
+                    #create mask object from pred_mask
                     pred_mask = self.roarsegtracker.track(frame, update_memory=True)
-                    # if curr_frame > 2187:
-                    #     plt.imshow(pred_mask)
-                    #     plt.show()
-                    
-                    test_pred_mask = np.unique(pred_mask)
+                 
+                    #set mask object dict for this frame
                     self.track_key_frame_mask_objs[curr_frame] = \
                         self.roarsegtracker.create_mask_objs_from_pred_mask(pred_mask, curr_frame)
-                    # if curr_frame == 88:
-                    #     print('88')
+                    
                 if self.store:
                     self.store_tracker(frame=str(curr_frame))
                 #cuda
                 torch.cuda.empty_cache()
                 gc.collect()
+        if socketroom:
+            progress_socketemit(job_id, 1.0, frames[-1])
                 
     def save_annotations(self) -> str:
         """Save the annotations to designate output dir

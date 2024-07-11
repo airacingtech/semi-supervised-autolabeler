@@ -97,9 +97,22 @@ bash script/install.sh
 bash script/download_ckpt.sh
 ```
 
+if ./ckpt/R50_DeAOTL_PRE_YTB_DAV.pth does not exist then download the model weights from [here](https://github.com/yoxu515/aot-benchmark) for DeAOT model and place in the ckpt directory.
+
+
 ## Running the server
 
 Make sure to configure your `.env` (see `example.env`).
+
+### Configuring global variables
+In roar_config.py, edit the following:
+- **PORT** The specified pot to host the server. Defaults to `5000`.
+- **HOST** The IP address of the server. Defaults to `localhost`.
+- **DOWNLOADS_PATH** The path where annotation zips that need to be tracked are placed. Should ideally be placed where the CVAT server or user places downloaded zips. The paired CVAT Docker repository that has modified to work with this repository does this automatically.
+- **DEBUG** Set to true to see debug logs
+
+### Create an agent key
+For security purposes on the Flask server, create an `agent.key` file in the repository directory with a string value that is hashed or random
 
 ### CUDA Toolkit 12.1
 Make sure when you run
@@ -119,17 +132,17 @@ Build cuda_12.1.r12.1/compiler.32415258_0
 
 if not follow the instructions here: [https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#post-installation-actions](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#post-installation-actions) and MAKE SURE you specifiy `--toolkit` when running the runfile installer or you will install the CUDA toolkit and the lower level graphics drivers which will likely break your system with a black screen on boot. If you do this accidentally, go to the Additional Drivers tab in Software & Updates in Ubuntu and select the NVIDIA driver that says (proprietary, tested) and reboot. Then run `nvidia-smi` and ensure it does not return an error.
 
-In your conda environment setup the groundingdino python module
-```
-cd /path/to/roar-seg-and-track-anything/src/groundingdino
-pip install -e .
-```
+
 
 Start workers in another terminal(s):
 ```bash
 celery -A roar_server.celery worker --loglevel=info -P eventlet -E -n worker1
 celery -A roar_server.celery worker --loglevel=info -P eventlet -E -n worker2
 ...
+```
+can run `start_celery_worker.sh` to do s automatically.
+```bash
+./start_celery_worker.sh "worker number"
 ```
 
 In the root directory:
@@ -143,16 +156,25 @@ python3 roar_server.py
 ![gui](docs/img/gui.png)
 
 - **Job**
-  - **Initial Segmentation** will take the single annotated frame (uploaded from cvat) and will track them through the rest of the frames.
-  - **Re-segmentation** is for annotation fixes; select individual frames by entering comma separated numbers
+  - **Initial Segmentation** will take the initial manually annotated frames (uploaded from cvat) and will track these annotations through any frames that aren't manually annotated.
+  - **Re-segmentation** is for annotation fixes; select individually and manually fixed frames by entering comma separated numbers
 - **Job ID** should match one of the job ids in the `Ready` box
-- **Threads** determines max thread workers; useful if multiple different frames are annotated (not initial segmentation)
-- **Reuse Annotation Output**
-    - if you want to reuse the annotation output from a previous tracking run for this specific job, click yes
-    - useful if you want to re-track with the frame right before tracking diverges and you don’t want to reannotate
+- **Threads** determines max thread workers; useful if multiple different frames are annotated for either inital or resegmentation
 - **Automatic Track** will submit the job
 - **Frame-by-Frame Tracking** will open panel for tracking through frames by manual input of user. See more details of usage below.
-
+- **Advanced options**
+  - **Reuse Annotation Output**
+      - if you want to reuse the annotation output from a previous tracking run for this specific job, click yes
+      - useful if you want to re-track with the frame right before tracking diverges and you don’t want to reannotate
+  - **Delete zip**: will delete the zip file in `DOWNLOADS_PATH` after a successful job execution
+### Status Boxes 
+There are 5 different status boxes, `Ready`, `Queued Jobs`, `Jobs in Progress`, `Completed Jobs`, and `Failed Jobs`.
+- **Ready** Will display newly added job zips that are ready to be tracked. 
+  - To use: In the specified `DOWNLOADS_PATH`, make a updates.txt file which should have line separated test specifying annotation zips that exist for tracking e.g 123.zip. The local CVAT Docker solution that pairs with this repository should automatically handle this.
+- **Queued Jobs** Will display jobs that are currently waiting to be handed over to a worker.
+- **Jobs in Progress** Will display jobs that are currently being tracked.
+- **Completed Jobs** Will display jobs that have completed. Click on the job number to download the respective completed annotation zip
+- **Failed Jobs** Will display jobs that have failed along with any error specifying why.
 
 ### Manual tracking (frame-by-frame)
 A visual version of the tracker, can see what the tracker is tracking at each frame and quickly export to CVAT to re-segment once object tracking diverges.

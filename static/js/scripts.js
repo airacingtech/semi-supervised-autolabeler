@@ -39,14 +39,14 @@ function onSubmit() {
     button.name = "verify_button";
     button.id = "submit_form"
         
-    let data_json = getFormJSON(data);
+    // let data_json = getFormJSON(data);
     button.addEventListener("click", function(event) {
         event.preventDefault(); 
         let divChild = document.getElementById("send_button");
         divChild.append(document.createElement("br"));
         divChild.appendChild(document.createTextNode("Job Sent! Wait for Download Link..."));
         
-        let jsonData = getFormJSON(document.getElementById("userForm")); // Convert form data to JSON
+        // let jsonData = getFormJSON(document.getElementById("userForm")); // Convert form data to JSON
     
         fetch(server_address, {
             method: 'POST',

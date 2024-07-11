@@ -8,7 +8,7 @@ import os
 import os.path as osp
 from roar_main import arg_main, MainHub, create_main_hub, save_main_hub
 import re
-from cvat_listener import CVAT_PATH, remove_job_from_file #TODO: copare cvat listener for integration
+from cvat_listener import remove_job_from_file #TODO: copare cvat listener for integration
 from tool.roar_tools import numpy_to_base64
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
 import base64
@@ -26,9 +26,10 @@ import subprocess
 DEBUG = rcvars.DEBUG
 
 parent_folder = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = rcvars.UPLOAD_FOLDER
+UPLOAD_FOLDER = rcvars.DOWNLOADS_PATH
 PORT = rcvars.PORT
 HOST = rcvars.HOST
+CVAT_PATH = rcvars.CVAT_PATH
 
 OUTPUT_FOLDER = os.path.join(parent_folder, "roar_annotations")
 ANN_OUT = os.path.join("output", "annotations_output")
@@ -85,7 +86,9 @@ def get_jobs_from_cvat():
                 job_zip = line.strip() # eg. 123.zip
                 filepath = os.path.join(UPLOAD_FOLDER, job_zip)
                 if os.path.exists(filepath):
-                    job_files.append(int(job_zip))
+                    job_files.append(int(job_zip[:-4]))
+                else:
+                    print(f"File {filepath} not found.")
     except Exception as e:
         print("Error reading " + CVAT_PATH)
         return []
@@ -146,8 +149,8 @@ def upload_file():
             threads = 1
         reseg_bool = not (r['jobType'] == "initial segmentation")
         # on_pattern = r'([O|o][n|N])'
-        reuse_annotation_output = bool(r.get('reuseAnnotation'))
-        delete_zip = bool(r.get('delete_zip'))
+        reuse_annotation_output = 'reuseAnnotation' in r
+        delete_zip = 'delete_zip' in r
         frames = []
 
         if reseg_bool:

@@ -394,8 +394,80 @@ def img_to_mask(img: np.array) -> tuple:
 #     rle.append(current_run)
     
 #     return (np.array(rle), width, height, rmin, cmin, img.shape)
-
-def xml_to_masks(annotations : str, img_dir : str):
+def xml_to_masks(annotations: str, img_dir: str):
+    """Parse Annotations.xml file from CVAT for mask recreation.
+    
+    Parameters:
+    annotations -- Path to annotations.xml file
+    img_dir -- Directory containing images for job
+    
+    Returns:
+    masks -- List of dicts with mask frame, run length encoding, left, top, width, height
+        id -- Track ID (0-indexed) corresponds with Object ID in CVAT browser uses 1-indexed
+        label -- label of mask
+        frame -- Frame number of mask (Corresponds with Image ID)
+        rle -- Run length encoding of mask
+        left -- Left coordinate of mask
+        top -- Top coordinate of mask
+        width -- Width of mask
+        height -- Height of mask
+    labels_dict -- Dictionary with label names as keys
+        key -- label name
+        value -- {color: Color of mask, id: ID of label}
+    img_dim -- Dictionary with keys 'width', 'height'
+    start_frame -- Start frame of video
+    stop_frame -- Stop frame of video
+    """
+    # Find Root
+    print("Opening annotations.xml to parse metadata and mask information")
+    tree = ET.parse(annotations)
+    root = tree.getroot()
+    
+    start_frame = int(root.find('.//start_frame').text)
+    stop_frame = int(root.find('.//stop_frame').text)
+    
+    # Find label information
+    labels_dict = {}
+    for l_id, label in enumerate(root.findall('.//label')):
+        l_name = label.find('name').text
+        l_color = label.find('color').text
+        labels_dict[l_name] = {'color': l_color, 'id': l_id}
+    
+    # Get Image dimensions by loading a random image
+    print("Looking for image dimensions by loading a random image")
+    all_images_paths = os.listdir(img_dir)
+    an_image_path = all_images_paths[0]
+    img = Image.open(os.path.join(img_dir, an_image_path))
+    img_dim = {'width': img.width, 'height': img.height}
+    
+    # Find mask information
+    print("Parsing mask information")
+    mask_keys = ['label', 'frame', 'rle', 'left', 'top', 'width', 'height']
+    
+    masks = []
+    for image in root.findall('.//image'):
+        frame = int(image.get('id'))
+        for mask in image.findall('mask'):
+            label = mask.get('label')
+            rle = np.array(mask.get('rle').split(', ')).astype(int)
+            left = int(mask.get('left'))
+            top = int(mask.get('top'))
+            width = int(mask.get('width'))
+            height = int(mask.get('height'))
+            masks.append({
+                'id': frame, 'label': label, 'frame': frame,
+                'rle': rle, 'left': left, 'top': top,
+                'width': width, 'height': height
+            })
+    
+    # Check if masks are empty
+    if len(masks) == 0:
+        raise ValueError(f"No masks found in {annotations} for images in {img_dir}. Please ensure the correct format is used.")
+    
+    print("Finished parsing annotations")
+    
+    return masks, labels_dict, img_dim, start_frame, stop_frame
+def xml_to_masks_deprecated(annotations : str, img_dir : str):
     """Parse Annotations.xml file from CVAT for mask recreation.
     
     Parameters:
@@ -458,7 +530,7 @@ def xml_to_masks(annotations : str, img_dir : str):
     
     # Check if masks are empty (meaning the wrong format may have been used)
     if len(masks) == 0:
-        raise ValueError("No masks found. Please ensure the correct format is used. " + \
+        raise ValueError(f"No masks found at annotation_dir {annotations} and imd_dir {img_dir}. Please ensure the correct format is used. " + \
             "NOTE: This function is designed for CVAT 1.1 for Video, not CVAT 1.0 for Images")
     print("Finished parsing annotations")
     
