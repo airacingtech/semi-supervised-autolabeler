@@ -480,12 +480,6 @@ class MainHub():
         #for thread in threads:
         #    thread.join()
         
-        
-        
-            
-                    
-        
-            
     def track(self):
         """
         Main function for tracking
@@ -496,6 +490,7 @@ class MainHub():
         start_frame = self.roarsegtracker.start_frame_idx
         end_frame = self.roarsegtracker.end_frame_idx
         key_frame_queue: deque[int] = deque(self.roarsegtracker.get_key_frame_arr())
+
         next_key_frame = key_frame_queue.popleft()
         curr_frame = self.roarsegtracker.get_key_frame_arr()[0]
         if curr_frame != next_key_frame:
@@ -728,25 +723,21 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     'max_obj_num': 255, # maximal object number to track in a video
     'min_new_obj_iou': 0.8, # the area of a new object in the background should > 80% 
     }
-    
 
     resegment = reseg_bool
-    
-    ###Create User Files
+
+    # Create User Files
     root = os.path.dirname(os.path.abspath(__file__))
     root = os.path.join(root, "roar_annotations")
-    
+ 
     reuse = reuse_output
     file_handler = RoarFileHandler(roar_path=root, downloads_path=DOWNLOADS_PATH)
     file_handler.make_folder(job_id=job_id)
     if not resegment and not reuse:
         file_handler.move_download_to_init_segment(job_id=job_id)
-    
-    
+
     start_time = time.time()
-    # job_id = 262
-    
-    
+
     main_path = os.path.join(root, str(job_id))
     photo_dir = os.path.join(main_path, "images")
     annotation_path = os.path.join(main_path, "annotations.xml")
@@ -766,7 +757,7 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
         file_handler.move_download_to_resegment(job_id=job_id)
     
     
-    ###If want to reuse previous output annotation
+    # If want to reuse previous output annotation
     if reuse:
         annotations_output = os.path.join(output_dir, "annotations_output")
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
@@ -814,6 +805,8 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
     else:
         if not multithread:
             # Run single threaded tracking
+            # TODO: Single threaded tracking is broken and the deques will index out of bounds
+            raise NotImplementedError("Single threaded tracking is not implemented as it throws index out of bounds error for deques")
             main_hub.track()  
         else:
             main_hub.multi_trackers()
@@ -936,10 +929,7 @@ def main():
             print("Your selected frames are: {}".format(new_frames))
             repeat_ans = input("is this correct? (y/n): ")
             repeat =  not (repeat_ans == 'y' or repeat_ans == 'Y')
-            
-            
-        
-        
+
         annotations_output = os.path.join(output_dir, "annotations_output")
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
         annotation_copy_path = os.path.join(annotations_output, "annotations_{}.xml".format(reseg_idx))
@@ -954,17 +944,14 @@ def main():
         key_frame_arr.extend(new_frames)
         key_frame_arr.sort()
         main_hub.resegment_track(past_key_frames=resegment_key_frames, new_frames=new_frames,
-                                 multithreading=multithread)
-        
-        
-                
+                                 multithreading=multithread)   
     else:
         if not multithread:
             main_hub.track()  
         else:
             main_hub.multi_trackers()
         key_frame_arr = main_hub.roarsegtracker.get_key_frame_arr()
-        
+
     mid_time = time.time()
     print("storing data...")
     #save annotations
@@ -982,9 +969,6 @@ def main():
     torch.cuda.empty_cache()
     gc.collect()
     print("Done!") 
-  
-  
-### Other tools
-  
+
 if __name__ == "__main__":
     main()

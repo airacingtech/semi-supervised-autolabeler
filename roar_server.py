@@ -80,6 +80,7 @@ def upload_file():
         delete_zip = bool(r.get('delete_zip'))
         frames = []
 
+        # Check if the job is a resegmentation job
         if reseg_bool:
             frames = r['frames'].split(",") if r.get('frames') is not None and r.get('frames') != '' else []
             frames = [int(frame) for frame in frames]
@@ -98,16 +99,18 @@ def upload_file():
             # elif file.filename == '' and not reuse_annotation_output:
             #     return 'No selected file', 400
             else:
-
-
                 filename = str(file.filename)
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 if not os.path.exists(UPLOAD_FOLDER):
                     return 'Specified UPLOAD_FOLDER in server does not exist', 400
                 file.save(filepath)
 
+        print(f"job_id: {job_id}, reseg_bool: {reseg_bool}, reuse_annotation_output: {reuse_annotation_output}, threads: {threads}, frames: {frames}")
+        print("Starting main tracking function")
         arg_main(job_id=job_id, reseg_bool=reseg_bool, reuse_output=reuse_annotation_output,
                 threads=threads, reseg_frames=frames, delete_zip=delete_zip)
+        print("Finished main tracking function")
+        
         job_folder = os.path.join(OUTPUT_FOLDER, str(job_id))
         annotation_output = os.path.join(job_folder, ANN_OUT)
         remove_job_from_file(CVAT_PATH, job_id)
@@ -251,4 +254,4 @@ if __name__ == '__main__':
     print("Starting server...")
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    socketio.run(app, host="localhost", port=5000, debug=False)
+    socketio.run(app, host="localhost", port=5000, debug=True)
