@@ -140,7 +140,7 @@ celery -A roar_server.celery worker --loglevel=info -P eventlet -E -n worker1
 celery -A roar_server.celery worker --loglevel=info -P eventlet -E -n worker2
 ...
 ```
-can run `start_celery_worker.sh` to do s automatically.
+can run `start_celery_worker.sh` to do sO automatically.
 ```bash
 ./start_celery_worker.sh "worker number"
 ```

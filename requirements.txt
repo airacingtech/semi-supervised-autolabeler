@@ -120,9 +120,6 @@ timm==0.9.2
 tinycss2==1.2.1
 tokenizers==0.13.3
 tomli==2.0.1
-torch==2.0.1
-torchaudio==2.0.2
-torchvision==0.15.2+cu118 -f https://download.pytorch.org/whl/torch_stable.html
 tornado==6.2
 tqdm==4.65.0
 traitlets==5.9.0
