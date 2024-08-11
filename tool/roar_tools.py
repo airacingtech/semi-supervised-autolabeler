@@ -442,23 +442,34 @@ def xml_to_masks(annotations: str, img_dir: str):
     
     # Find mask information
     print("Parsing mask information")
-    mask_keys = ['label', 'frame', 'rle', 'left', 'top', 'width', 'height']
+    #assert masks and track object in annotqation.xml have these keys
+    track_keys = ['id', 'label']
+    mask_keys = ['frame', 'rle', 'left', 'top', 'width', 'height']
     
     masks = []
-    for image in root.findall('.//image'):
-        frame = int(image.get('id'))
-        for mask in image.findall('mask'):
-            label = mask.get('label')
-            rle = np.array(mask.get('rle').split(', ')).astype(int)
-            left = int(mask.get('left'))
-            top = int(mask.get('top'))
-            width = int(mask.get('width'))
-            height = int(mask.get('height'))
-            masks.append({
-                'id': frame, 'label': label, 'frame': frame,
-                'rle': rle, 'left': left, 'top': top,
-                'width': width, 'height': height
-            })
+    # if this format doesnt work use the one below
+    # for image in root.findall('.//image'):
+    #     frame = int(image.get('id'))
+    #     for mask in image.findall('mask'):
+    #         label = mask.get('label')
+    #         rle = np.array(mask.get('rle').split(', ')).astype(int)
+    #         left = int(mask.get('left'))
+    #         top = int(mask.get('top'))
+    #         width = int(mask.get('width'))
+    #         height = int(mask.get('height'))
+    #         masks.append({
+    #             'id': frame, 'label': label, 'frame': frame,
+    #             'rle': rle, 'left': left, 'top': top,
+    #             'width': width, 'height': height
+    #         })
+     # Find keys and cast to correct type
+    # This assumes the data is formated as CVAT 1.1 for Video not CVAT 1.0 for Images
+    for track in root.findall('.//track'):
+        track_values = [int(track.get(k)) if track.get(k).isdigit() \
+            else track.get(k) for k in track_keys]
+        mask_values = [int(track.find('mask').get(k)) if track.find('mask').get(k).isdigit() \
+            else np.array(track.find('mask').get(k).split(', ')).astype(int) for k in mask_keys]
+        masks.append(dict(zip(track_keys + mask_keys,track_values + mask_values)))
     
     # Check if masks are empty
     if len(masks) == 0:
