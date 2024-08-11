@@ -199,9 +199,17 @@ A visual version of the tracker, can see what the tracker is tracking at each fr
 
 ## Command Line Interface
 
+If you want to use the tracking tool from the command line, you can use the `roar_main.py` script.
+
 ```python
 python roar_main.py
 ```
+
+## Misc
+
+> WARNING: This will delete all annotations and jobs in the server.
+
+If the internal annotations in the server ever get corrupted, you can delete the `roar_annotations` folder with `bash script/server_cleanup.sh` and restart the server.
 
 ### Credits
 
