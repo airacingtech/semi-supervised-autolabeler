@@ -63,6 +63,14 @@ conda env create -f updated_environment.yml
 conda activate SAMT
 pip install -r requirements.txt
 ```
+### Installing PyTorch
+- manually install pytorch package using pip package installer [here](https://pytorch.org/get-started/locally/) \
+- The specs should be:
+  - PyTorch Build: Stable
+  - OS: your os
+  - Package: pip
+  - Language: Python
+  - Compute Platform: CUDA 11.8
 
 ## Setting up rabbitmq server
 
