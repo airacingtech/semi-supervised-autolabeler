@@ -203,7 +203,6 @@ A visual version of the tracker, can see what the tracker is tracking at each fr
 python roar_main.py
 ```
 
- 
 ### Credits
 
 - CVAT.ai's [Computer Vision Annotation Tool](https://github.com/opencv/cvat)

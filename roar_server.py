@@ -398,13 +398,3 @@ if __name__ == '__main__':
     print("Starting server...")
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-
-    try:
-        # Run the script that would clear the roar_annotations folder once in awhile.
-        proc = subprocess.Popen(["/bin/bash", "server_cleanup.sh"])
-    
-        print(f"Running on {HOST}:{PORT}")
-        socketio.run(app, host=HOST, port=PORT, debug=DEBUG)
-
-    finally:
-        kill_process(proc)
