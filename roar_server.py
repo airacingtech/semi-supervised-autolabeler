@@ -76,8 +76,16 @@ def remove_job_from_file(filepath, job_id):
         for line in lines:
             if filename not in line:
                 f.write(line)
+
 def get_jobs_from_cvat():
+    '''
+    Reads the CVAT_PATH file that is created when CVAT exports a job.
+
+    Returns:
+        list: A list of job_ids that are in the CVAT_PATH file.
+    '''
     job_files = []
+
     try:
         with open(CVAT_PATH, "r") as file:
             for line in file.readlines():
@@ -90,9 +98,9 @@ def get_jobs_from_cvat():
                 else:
                     print(f"File {filepath} not found.")
     except Exception as e:
-        print("Error reading " + CVAT_PATH)
+        print("Error reading " + CVAT_PATH + ": " + str(e))
         return []
-    
+
     # try:
     #     with open(CVAT_PATH, "w") as file:
     #         file.writelines(job_files)
