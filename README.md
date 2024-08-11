@@ -97,7 +97,7 @@ bash script/install.sh
 bash script/download_ckpt.sh
 ```
 
-if ./ckpt/R50_DeAOTL_PRE_YTB_DAV.pth does not exist then download the model weights from [here](https://github.com/yoxu515/aot-benchmark) for DeAOT model and place in the ckpt directory.
+if ./ckpt/R50_DeAOTL_PRE_YTB_DAV.pth does not exist then download the model weights from [here](https://github.com/z-x-yang/Segment-and-Track-Anything) for DeAOT model and place in the ckpt directory.
 
 
 ## Running the server
