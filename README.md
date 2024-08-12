@@ -229,7 +229,7 @@ If you get
 An exception occurred: CUDA out of memory. Tried to allocate xxx MiB...
 ```
 
-then reduce the number of threads in the GUI to reduce the amount of instances of the model running on the GPU at once.
+then reduce the number of threads in the GUI to reduce the amount of instances of the model running on the GPU at once. You can also check if other programs are using too much GPU memory and kill them by using the CLI command `nvtop`. Note: CVAT with SAM will use a lot of GPU memory.
 
 ## Credits
 
