@@ -398,3 +398,12 @@ if __name__ == '__main__':
     print("Starting server...")
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
+
+    try:
+        
+    
+        print(f"Running on {HOST}:{PORT}")
+        socketio.run(app, host=HOST, port=PORT, debug=DEBUG)
+
+    except RuntimeError as e:
+        print(f"Error in main: {e}")
