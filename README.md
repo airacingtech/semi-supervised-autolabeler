@@ -181,7 +181,7 @@ python3 roar_server.py
 
 There are 5 different status boxes, `Ready`, `Queued Jobs`, `Jobs in Progress`, `Completed Jobs`, and `Failed Jobs`.
 
-- **Ready** Will display newly added job zips that are ready to be tracked. 
+- **Ready** Will display newly added job zips that are ready to be tracked.
   - To use: In the specified `DOWNLOADS_PATH`, make a updates.txt file which should have line separated test specifying annotation zips that exist for tracking e.g 123.zip. The local CVAT Docker solution that pairs with this repository should automatically handle this.
 - **Queued Jobs** Will display jobs that are currently waiting to be handed over to a worker.
 - **Jobs in Progress** Will display jobs that are currently being tracked.
@@ -215,11 +215,23 @@ python roar_main.py
 
 ## Misc
 
+### Server Annotations Cleanup
+
 > WARNING: This will delete all annotations and jobs in the server.
 
 If the internal annotations in the server ever get corrupted, you can delete the `roar_annotations` folder with `bash script/server_cleanup.sh` and restart the server.
 
-### Credits
+## Errors
+
+If you get
+
+```bash
+An exception occurred: CUDA out of memory. Tried to allocate xxx MiB...
+```
+
+then reduce the number of threads in the GUI to reduce the amount of instances of the model running on the GPU at once. You can also check if other programs are using too much GPU memory and kill them by using the CLI command `nvtop`. Note: CVAT with SAM will use a lot of GPU memory.
+
+## Credits
 
 - CVAT.ai's [Computer Vision Annotation Tool](https://github.com/opencv/cvat)
 - Facebook Research’s [Segment-Anything-Model]
