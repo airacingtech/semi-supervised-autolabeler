@@ -121,7 +121,7 @@ class RoarSegTracker(SegTracker):
         
         mask_objects = self.get_key_frame_to_masks().get(key_frame_idx)
         if mask_objects is None:
-            return
+            return None
         origin_merged_mask = np.zeros(self.img_dim, dtype=np.uint8)
         self.reference_objs_list = mask_objects
         self.class_obj={}

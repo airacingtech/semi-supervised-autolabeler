@@ -159,6 +159,7 @@ def upload_file():
         # on_pattern = r'([O|o][n|N])'
         reuse_annotation_output = 'reuseAnnotation' in r
         delete_zip = 'delete_zip' in r
+        print(f"delete_zip: {delete_zip}")
         frames = []
 
         if reseg_bool:
