@@ -346,7 +346,7 @@ class MainHub():
                 torch.cuda.empty_cache()
                 gc.collect()
     def resegment_track(self, past_key_frames: deque[int] =deque(),
-                        new_frames: list[int] = [], multithreading: bool = False, custom_end_frame_idx: int = 0):
+                        new_frames: list[int] = [], multithreading: bool = False, custom_end_frame_idx: int = 0, socketroom=None, job_id=None):
         """Resegmentation tracker function. Expects that multi_track or 
         track has been run on CVAT job before calling this function.
         Takes new frames inputed by user which are resegmented by user in 
@@ -376,6 +376,9 @@ class MainHub():
             
             try:
                 for i in tqdm(range(len(new_frames)), "Processing new frame to past key frames in single iteration: "):
+                    if socketroom:
+                      
+                        progress_socketemit(job_id, i / len(new_frames), new_frames[i])
                     #pre checks: make sure next past_key_frame > new_frame
                     while len(past_key_frames) > 0 and past_key_frames[0] <= new_frames[i]:
                         past_key_frames.popleft()
@@ -394,14 +397,14 @@ class MainHub():
                         
                         
                     #past key frames is empty and no next_new_frame (last element)
-                    elif custom_end_frame_idx > new_frame:
-                        end_frame = custom_end_frame_idx
+                    elif end_frame_idx > new_frame:
+                        end_frame = end_frame_idx
                         
                            
                        
                     else:
-                        print(f"problem with frame")
-                        raise Exception(f"No new frames to process after frame {new_frame}")
+                        print(f"problem with frame: {new_frame}")
+                        
                     
                     key_frame_arr = deque([new_frame])
                     roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
@@ -472,7 +475,7 @@ class MainHub():
                 
                 
         
-    def multi_trackers(self):
+    def multi_trackers(self, socketroom=None, job_id=None):
         """Multithreading performance works by starting a thread for 
         each given key frame up to MAX_WORKERS at a time.
         """
@@ -492,6 +495,8 @@ class MainHub():
                 print(f"Labeling from {len(key_frame_queue)} keyframes")
                 for i in tqdm(range(len(key_frame_queue) - 1), "Making threads {}".format(self.max_workers)):
                     key_frame = key_frame_queue[i]
+                    if socketroom:
+                        progress_socketemit(job_id, i / len(key_frame_queue), key_frame)
                     end_frame_idx = key_frame_queue[i + 1]
                     # Skip if there are no unlabeled frames between start frame and end_frame
                     # meaning there are two labeled frames next to each other and we don't need to run the tracker
@@ -851,13 +856,13 @@ def arg_main(sam_args=sam_args, segtracker_args=segtracker_args, aot_args=aot_ar
         new_frames.sort()
         resegment_key_frames.sort()
         main_hub.resegment_track(past_key_frames=deque(resegment_key_frames), new_frames=new_frames,
-                                 multithreading=multithread)
+                                 multithreading=multithread, socketroom=socketroom, job_id=job_id)
     else:
         if not multithread:
             # Run single threaded tracking
             main_hub.track(socketroom=socketroom, job_id=job_id)  
         else:
-            main_hub.multi_trackers()
+            main_hub.multi_trackers(socketroom=socketroom, job_id=job_id)
         key_frame_arr = main_hub.roarsegtracker.get_key_frame_arr()
         
     mid_time = time.time()
