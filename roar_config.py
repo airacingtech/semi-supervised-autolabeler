@@ -1,7 +1,7 @@
 import os
 PORT = 5000
 HOST = "localhost"
-DOWNLOADS_PATH = ...
+DOWNLOADS_PATH = "/home/roar-perception/cvat_docker/downloads"
 PORT = 5000
 FLASK_APP="roar_server.py"
 FLASK_ENV="dev"

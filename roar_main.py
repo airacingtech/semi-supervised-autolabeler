@@ -280,14 +280,17 @@ class MainHub():
             greatest key frame index value. Defaults to 0.
         """
         next_key_frame = key_frames.popleft()
+        if next_key_frame == end_frame_idx:
+            return
         assert next_key_frame < end_frame_idx
         frames = list(range(next_key_frame, end_frame_idx + 1))
         curr_frame = frames[0]
         erase=False
+        end = frames[-1]
         with torch.cuda.amp.autocast():
             for curr_frame in tqdm(frames, 
                                    "Processing frames {} to {}".format(curr_frame, 
-                                                                      frames[-1])):
+                                                                      end)):
                 
                 if curr_frame == next_key_frame:
                     #start with new tracker for every keyframe to reset weights
@@ -305,6 +308,8 @@ class MainHub():
                         print(f"frame: {curr_frame} is empty. if on purpose is fine")
                     else:
                         frame = rt.get_image(self.photo_dir, curr_frame)
+                        if frame is None:
+                            raise Exception(f"no image exists at {self.photo_dir} for curr frame: {curr_frame}")
                         with self.lock:
                             self.track_key_frame_mask_objs[curr_frame] = \
                                 roar_seg_tracker.get_key_frame_to_masks()[curr_frame]
@@ -321,12 +326,15 @@ class MainHub():
                     
                 elif curr_frame % self.roarsegtracker.sam_gap == 0 and self.use_sam_gap:
                     pass
-                elif erase and curr_frame in self.track_key_frame_mask_objs:
-                    with self.lock:
-                        del self.track_key_frame_mask_objs[curr_frame]
+                elif erase:
+                    if curr_frame in self.track_key_frame_mask_objs:
+                        with self.lock:
+                            del self.track_key_frame_mask_objs[curr_frame]
                 else:
                 #TODO: create mask object from pred_mask
                     frame = rt.get_image(self.photo_dir, curr_frame)
+                    if frame is None:
+                        raise Exception(f"no image exists at {self.photo_dir} for curr frame: {curr_frame}")
                     pred_mask = roar_seg_tracker.track(frame, update_memory=True)
 
                     # test_pred_mask = np.unique(pred_mask)
@@ -374,7 +382,9 @@ class MainHub():
                     
                     new_frame = new_frames[i]
                     #case new_frames[i + 1] < next past_key_frame or past key frames is empty
-                    if len(past_key_frames) == 0 or (i + 1 < len(new_frames) and new_frames[i + 1] < past_key_frames[0]):
+                    if len(past_key_frames) == 0 or (i + 1 < len(new_frames) and \
+                    new_frames[i + 1] < past_key_frames[0] and \
+                    new_frame < new_frames[i + 1]):
                         end_frame = new_frames[i + 1] - 1
                         
                         

@@ -127,6 +127,7 @@ def get_image(photo_dir="", frame_num=0) -> np.array:
             im_frame = Image.open(path_to_file)
             np_frame = np.array(im_frame)
             return np_frame
+    print(f"no image with path: {photo_dir}")
         
 def get_image_from_path(path_to_file) -> np.array:
     """Takes a photo path and returns a numpy array representing the image.
