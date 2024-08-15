@@ -317,7 +317,7 @@ class MainHub():
                             #cuda
                             torch.cuda.empty_cache()
                             gc.collect()
-                            print(f"running inf on frame: {curr_frame} and pred_mask is {pred_mask}")
+                            print(f"running inf on frame: {curr_frame}")
                             roar_seg_tracker.add_reference_with_label(frame, pred_mask)
                             print("finished")
                     
@@ -371,7 +371,7 @@ class MainHub():
         # past_key_frames.append(end_frame_idx) #last key frame goes to end of video
         self.track_key_frame_mask_objs = self.roarsegtracker.get_key_frame_to_masks()
        
-        if self.max_workers == 1:
+        if not multithreading:
             
             
             try:
@@ -404,6 +404,7 @@ class MainHub():
                        
                     else:
                         print(f"problem with frame: {new_frame}")
+                        break
                         
                     
                     key_frame_arr = deque([new_frame])
@@ -427,13 +428,18 @@ class MainHub():
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 try:
                     for i in tqdm(range(len(new_frames)), "Processing new frame to past key frames: "):
+                        if socketroom:
+                      
+                            progress_socketemit(job_id, i / len(new_frames), new_frames[i])
                         #pre checks: make sure next past_key_frame > new_frame
-                        while past_key_frames and past_key_frames[0] <= new_frames[i]:
+                        while len(past_key_frames) > 0 and past_key_frames[0] <= new_frames[i]:
                             past_key_frames.popleft()
                         
                         new_frame = new_frames[i]
                         #case new_frames[i + 1] < next past_key_frame or past key frames is empty
-                        if len(past_key_frames) == 0 or (i + 1 < len(new_frames) and new_frames[i + 1] < past_key_frames[0]):
+                        if len(past_key_frames) == 0 or (i + 1 < len(new_frames) and \
+                        new_frames[i + 1] < past_key_frames[0] and \
+                        new_frame < new_frames[i + 1]):
                             end_frame = new_frames[i + 1] - 1
                             
                             
@@ -443,26 +449,28 @@ class MainHub():
                             
                             
                         #past key frames is empty and no next_new_frame (last element)
-                        elif custom_end_frame_idx > new_frame:
-                            end_frame = custom_end_frame_idx
-                            
+                        elif end_frame_idx > new_frame:
+                            end_frame = end_frame_idx
                             
                             
                         
                         else:
-                            print(f"problem with frame")
-                            raise Exception(f"No new frames to process after frame {new_frame}")
+                            print(f"problem with frame: {new_frame}")
+                            break
+                            
                         
                         key_frame_arr = deque([new_frame])
                         roartracker = RoarSegTracker(self.segtracker_args, self.sam_args, self.aot_args)
                         roartracker.restart_tracker()
+                        print("setting up values")
                         roartracker.setup_tracker_by_values(key_frame_to_masks=\
-                        {new_frame: self.track_key_frame_mask_objs[new_frame]},  
+                        {new_frame: self.track_key_frame_mask_objs.get(new_frame)},  
                                                         start_frame_idx=new_frame, end_frame_idx=end_frame, 
                                                         img_dim=self.roarsegtracker.get_img_dim(), 
                                                         label_to_color=self.roarsegtracker.get_label_to_color(),
                                                         key_frame_arr=key_frame_arr)
-                        
+                        print("set up tracker, going to run it")
+                        self.track_set_frames(roartracker, key_frame_arr, end_frame)
                         executor.submit(self.track_set_frames, roartracker, key_frame_arr, end_frame)
 
                             

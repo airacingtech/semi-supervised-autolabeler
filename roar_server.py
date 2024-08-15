@@ -53,8 +53,10 @@ socketio = SocketIO(
     app, message_queue="amqp://", cors_allowed_origins=f"http://{HOST}:{PORT}"
 )
 celery = make_celery(app)
+celery.conf.update(broker_retry_connection_on_startup=True)
 cors = CORS(app, expose_headers=["Content-Disposition"])
 app.config['CORS_HEADERS'] = 'Content-Type'
+
 
 
 current_image_index = 0
