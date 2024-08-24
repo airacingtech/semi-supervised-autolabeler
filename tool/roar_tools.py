@@ -427,6 +427,14 @@ def xml_to_masks(annotations: str, img_dir: str):
     
     start_frame = int(root.find('.//start_frame').text)
     stop_frame = int(root.find('.//stop_frame').text)
+    frame_filter = root.find('.//frame_filter').text
+    # print(f"frame_step_key")
+    frame_step = 1
+    if frame_filter is not None:
+        frame_step = int(frame_filter.split('=')[1])
+
+    stop_frame //= frame_step 
+    start_frame //= frame_step
     
     # Find label information
     labels_dict = {}
