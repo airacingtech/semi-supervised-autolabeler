@@ -1,0 +1,15 @@
+# Description: Tmuxp config to start semi_supervised_auto_labler
+session_name: semi_supervised_auto_labler
+start_directory: ../
+windows:
+  - window_name: semi_supervised_auto_labler
+    layout: tiled
+    panes:
+      - shell_command:
+          - conda_setup
+          - conda activate SAMT
+          - python3 roar_server.py
+      - shell_command:
+          - conda_setup
+          - conda activate SAMT
+          - bash start_celery_worker.sh 1
