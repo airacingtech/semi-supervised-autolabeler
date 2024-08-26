@@ -138,14 +138,14 @@ def upload_file():
     try:
         if request.method == 'GET':
             return "Nice try uploading..."
-        file_test = request.files.get('file')
+        # file_test = request.files.get('file')
         # r = request.get_json(force=True)
         r = request.form
         
         job_id = int(r.get('jobId'))
         # Check if the job_id is already being tracked
         if TRACKERS.get(job_id) is not None:
-            return f"Tracking job for {job_id} already in progress", 400
+            return jsonify(f"Tracking job for {job_id} already in progress", 400)
         else:
             # Add the job_id to the TRACKERS dictionary
             TRACKERS[job_id] = job_id
@@ -196,7 +196,9 @@ def upload_file():
         )
         
         jobs_db.update(dict(id=job_id, status=STATUS_QUEUED, msg=r["jobType"]), ["id"])
-        return jsonify({"message": f"Queued job {job_id}", "task_id": task.id})
+        del TRACKERS[job_id]
+        return jsonify({"message": f"Queued job {job_id}", "task_id": str(task.id)})
+        
     
     except Exception as e:
         traceback.print_exc()

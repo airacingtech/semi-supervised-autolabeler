@@ -21,6 +21,20 @@ for img in *.jpg; do
         echo "Warning: $new_name already exists, skipping..."
     else
         mv "$img" "$new_name"
+        rm "$img"
+        echo "Renamed $img to $new_name"
+        counter=$((counter + 1))
+    fi
+done
+for img in *.PNG; do
+    new_name="Image_$counter.PNG"
+    
+    # Check if the new name already exists
+    if [ -e "$new_name" ]; then
+        echo "Warning: $new_name already exists, skipping..."
+    else
+        mv "$img" "$new_name"
+        rm "$img"
         echo "Renamed $img to $new_name"
         counter=$((counter + 1))
     fi

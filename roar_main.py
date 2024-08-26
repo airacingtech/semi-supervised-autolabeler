@@ -385,12 +385,13 @@ class MainHub():
                     
                     new_frame = new_frames[i]
                     #case new_frames[i + 1] < next past_key_frame or past key frames is empty
-                    print(f"if cases for: new_frame: {new_frame}, i: {i}, new_frames: {new_frames}, past_key_frames: {past_key_frames}, end_frame_idx: {end_frame_idx}")
-                    if i + 1 < len(new_frames) and (len(past_key_frames) == 0 or \
+                    if i + 1 < len(new_frames) and \
                     (
-                        new_frames[i + 1] < past_key_frames[0] and \
-                        new_frame < new_frames[i + 1]\
-                    )
+                        len(past_key_frames) == 0 or \
+                            (
+                                new_frames[i + 1] < past_key_frames[0] and \
+                                new_frame < new_frames[i + 1]
+                            )
                     ):
                         end_frame = new_frames[i + 1] - 1
                         
@@ -442,12 +443,13 @@ class MainHub():
                         
                         new_frame = new_frames[i]
                         #case new_frames[i + 1] < next past_key_frame or past key frames is empty
-                        print(f"if cases for: new_frame: {new_frame}, i: {i}, new_frames: {new_frames}, past_key_frames: {past_key_frames}, end_frame_idx: {end_frame_idx}")
-                        if i + 1 < len(new_frames) and (len(past_key_frames) == 0 or \
+                        if i + 1 < len(new_frames) and \
                         (
-                            new_frames[i + 1] < past_key_frames[0] and \
-                            new_frame < new_frames[i + 1]\
-                        )
+                            len(past_key_frames) == 0 or \
+                                (
+                                    new_frames[i + 1] < past_key_frames[0] and \
+                                    new_frame < new_frames[i + 1]
+                                )
                         ):
                             end_frame = new_frames[i + 1] - 1
                             
