@@ -168,20 +168,22 @@ class MainHub:
     def get_roar_seg_tracker(self) -> RoarSegTracker:
         return self.roarsegtracker
 
-    def setup_reseg_key_frames(
-        self, new_frames_org: list[int], past_frames: list[int]
-    ) -> list[int]:
+        
+    def setup_reseg_key_frames(self, new_frames_org: list[int], past_frames: list[int]) -> list[int]:
         """
-        Generates new combined keyframes given list of old key frames and
+        Generates new combined keyframes given list of old key frames and 
         list of new key frames to resegment. Ensure in order and no duplicates
         given that PAST_FRAMES and NEW_FRAMES is in order already
+        
 
         Arguments:
             new_frames (list[int]) : list of new key frames to resegment
             past_frames (list[int]): list of old key frames to use
         Returns:
             list[int]: list of combined key frames in order with no duplicates
+
         """
+
         try:
             # combined_frames = past_frames + new_frames
             # dupes = {}
@@ -208,12 +210,9 @@ class MainHub:
         except Exception as e:
             print(f"Error: {e}")
 
-    def remake_key_frames(
-        self,
-        roarsegtracker: RoarSegTracker,
-        new_frames: list[int],
-        past_frames: list[int],
-    ) -> list[int]:
+            
+    def remake_key_frames(self, roarsegtracker: RoarSegTracker, new_frames: list[int], past_frames: list[int]) -> list[int]:
+
         """
         Remakes the key_frame to mask_object dictionary by removing frame that would be generated again by new_frames
         declared for resegmentation
@@ -232,7 +231,9 @@ class MainHub:
                 break
             elif combined_frames[i] == new_frame_queue[0]:
                 new_frame_queue.pop(0)
-                # find next key frame to tracck until
+
+                #find next key frame to tracck until
+
                 if i + 1 < len(combined_frames):
                     end = combined_frames[i + 1]
                 else:
@@ -240,6 +241,9 @@ class MainHub:
                 for frame in range(combined_frames[i] + 1, end + 1):
                     if roarsegtracker.get_key_frame_to_masks().get(frame) is not None:
                         del roarsegtracker.get_key_frame_to_masks()[frame]
+
+                        
+                
 
         return combined_frames
 
@@ -705,6 +709,7 @@ def save_main_hub(main_hub: MainHub):
     gc.collect()
 
 
+
 def create_main_hub(
     sam_args=sam_args,
     segtracker_args=segtracker_args,
@@ -714,6 +719,7 @@ def create_main_hub(
     reuse_output: bool = False,
     new_frames=[],
 ) -> MainHub:
+
     """Creates MainHub Object
 
     Args:
@@ -767,6 +773,7 @@ def create_main_hub(
         annotation_output_path = os.path.join(annotations_output, "annotations.xml")
         reseg_path = annotation_output_path
 
+
     main_hub = MainHub(
         segtracker_args=segtracker_args,
         sam_args=sam_args,
@@ -775,6 +782,7 @@ def create_main_hub(
         annotation_dir=(annotation_path if not resegment else reseg_path),
         output_dir=output_dir,
     )
+
     main_hub.set_new_frames(new_frames)
     main_hub.set_key_frame_path(key_frame_path)
     main_hub.set_root(main_path)
